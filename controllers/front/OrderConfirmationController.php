@@ -25,18 +25,24 @@
  */
 use PrestaShop\PrestaShop\Adapter\Presenter\Object\ObjectPresenter;
 use PrestaShop\PrestaShop\Adapter\Presenter\Order\OrderPresenter;
+use PrestaShop\PrestaShop\Core\Security\PasswordPolicyConfiguration;
+use ZxcvbnPhp\Zxcvbn;
 
 class OrderConfirmationControllerCore extends FrontController
 {
+    /** @var bool */
     public $ssl = true;
+    /** @var string */
     public $php_self = 'order-confirmation';
     /** @var int Cart ID */
     public $id_cart;
     public $id_module;
     public $id_order;
     public $secure_key;
+
     /** @var Order Order object we found by cart ID */
     protected $order;
+
     /** @var Customer Customer object related to the cart */
     protected $customer;
     public $reference; // Deprecated
@@ -49,6 +55,15 @@ class OrderConfirmationControllerCore extends FrontController
      */
     public function init()
     {
+        // Test below to prevent unnecessary logs from "parent::init()"
+        $this->id_cart = (int) Tools::getValue('id_cart', 0);
+        if (!empty($this->context->cookie->id_cart) && $this->context->cookie->id_cart == $this->id_cart) {
+            $cart = new Cart($this->id_cart);
+            if ($cart->orderExists()) {
+                unset($this->context->cookie->id_cart);
+            }
+        }
+
         parent::init();
 
         // If we are coming to this page to finish free order we do extra checks and validations
@@ -63,7 +78,6 @@ class OrderConfirmationControllerCore extends FrontController
          *
          * It's not implemented yet, however.
          */
-        $this->id_cart = (int) (Tools::getValue('id_cart', 0));
         $this->id_order = Order::getIdByCartId((int) ($this->id_cart));
         $this->secure_key = Tools::getValue('key', false);
         $this->order = new Order((int) ($this->id_order));
@@ -119,16 +133,56 @@ class OrderConfirmationControllerCore extends FrontController
                     [],
                     'Shop.Forms.Help'
                 );
-            } elseif (strlen($password) < Validate::PASSWORD_LENGTH) {
-                $this->errors[] = $this->trans(
-                    'Your password must be at least %min% characters long.',
-                    ['%min%' => Validate::PASSWORD_LENGTH],
-                    'Shop.Forms.Help'
-                );
-            // Prevent error
-            // A) either on page refresh
-            // B) if we already transformed him in other window or through backoffice
-            } elseif ($this->customer->is_guest == 0) {
+            } else {
+                if (Validate::isAcceptablePasswordLength($password) === false) {
+                    $this->errors[] = $this->translator->trans(
+                        'Password must be between %d and %d characters long',
+                        [
+                            Configuration::get(PasswordPolicyConfiguration::CONFIGURATION_MINIMUM_LENGTH),
+                            Configuration::get(PasswordPolicyConfiguration::CONFIGURATION_MAXIMUM_LENGTH),
+                        ],
+                        'Shop.Notifications.Error'
+                    );
+                }
+                if (Validate::isAcceptablePasswordScore($password) === false) {
+                    $wordingsForScore = [
+                        $this->translator->trans('Very weak', [], 'Shop.Theme.Global'),
+                        $this->translator->trans('Weak', [], 'Shop.Theme.Global'),
+                        $this->translator->trans('Average', [], 'Shop.Theme.Global'),
+                        $this->translator->trans('Strong', [], 'Shop.Theme.Global'),
+                        $this->translator->trans('Very strong', [], 'Shop.Theme.Global'),
+                    ];
+                    $globalErrorMessage = $this->translator->trans(
+                        'The minimum score must be: %s',
+                        [
+                            $wordingsForScore[(int) Configuration::get(PasswordPolicyConfiguration::CONFIGURATION_MINIMUM_SCORE)],
+                        ],
+                        'Shop.Notifications.Error'
+                    );
+                    if ($this->context->shop->theme->get('global_settings.new_password_policy_feature') !== true) {
+                        $zxcvbn = new Zxcvbn();
+                        $result = $zxcvbn->passwordStrength($password);
+                        if (!empty($result['feedback']['warning'])) {
+                            $this->errors[] = $this->translator->trans(
+                                $result['feedback']['warning'], [], 'Shop.Theme.Global'
+                            );
+                        } else {
+                            $this->errors[] = $globalErrorMessage;
+                        }
+                        foreach ($result['feedback']['suggestions'] as $suggestion) {
+                            $this->errors[] = $this->translator->trans($suggestion, [], 'Shop.Theme.Global');
+                        }
+                    } else {
+                        $this->errors[] = $globalErrorMessage;
+                    }
+                }
+            }
+
+            if (!empty($this->errors)) {
+                return;
+            }
+
+            if ($this->customer->is_guest == 0) {
                 $this->errors[] = $this->trans(
                     'A customer account has already been created from this guest account. Please sign in.',
                     [],
@@ -165,7 +219,7 @@ class OrderConfirmationControllerCore extends FrontController
             'HOOK_PAYMENT_RETURN' => $this->displayPaymentReturn($this->order),
             'order' => (new OrderPresenter())->present($this->order),
             'order_customer' => (new ObjectPresenter())->present($this->customer),
-            'registered_customer_exists' => Customer::customerExists($this->customer->email, false, true),
+            'registered_customer_exists' => Customer::customerExists($this->customer->email),
         ]);
         $this->setTemplate('checkout/order-confirmation');
 
@@ -218,7 +272,7 @@ class OrderConfirmationControllerCore extends FrontController
         $order = new PaymentFree();
         $order->validateOrder(
             $cart->id,
-            Configuration::get('PS_OS_PAYMENT'),
+            (int) Configuration::get('PS_OS_PAYMENT'),
             0,
             $this->trans('Free order', [], 'Admin.Orderscustomers.Feature'),
             null,
@@ -245,5 +299,21 @@ class OrderConfirmationControllerCore extends FrontController
         ];
 
         return $breadcrumb;
+    }
+
+    /**
+     * @return Order
+     */
+    public function getOrder()
+    {
+        return $this->order;
+    }
+
+    /**
+     * @return Customer
+     */
+    public function getCustomer()
+    {
+        return $this->customer;
     }
 }

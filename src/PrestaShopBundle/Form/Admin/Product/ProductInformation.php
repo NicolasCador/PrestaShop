@@ -43,6 +43,7 @@ use PrestaShopBundle\Form\Admin\Type\FormattedTextareaType;
 use PrestaShopBundle\Form\Admin\Type\TranslateType;
 use PrestaShopBundle\Form\Admin\Type\TypeaheadProductCollectionType;
 use PrestaShopBundle\Form\Admin\Type\TypeaheadProductPackCollectionType;
+use PrestaShopBundle\Form\FormHelper;
 use PrestaShopBundle\Form\Validator\Constraints\TinyMceMaxLength;
 use PrestaShopBundle\Service\Routing\Router;
 use Symfony\Component\Form\Extension\Core\Type as FormType;
@@ -50,10 +51,12 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
-use Symfony\Component\Translation\TranslatorInterface;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major.
+ *
  * This form class is responsible to generate the basic product information form.
  */
 class ProductInformation extends CommonAbstractType
@@ -101,10 +104,6 @@ class ProductInformation extends CommonAbstractType
     /**
      * @var ProductDataProvider
      */
-    private $productAdapter;
-    /**
-     * @var ProductDataProvider
-     */
     public $productDataProvider;
     /**
      * @var Router
@@ -139,7 +138,6 @@ class ProductInformation extends CommonAbstractType
         $this->translator = $translator;
         $this->router = $router;
         $this->productDataProvider = $productDataProvider;
-        $this->productAdapter = $this->productDataProvider;
         $this->categoryDataProvider = $categoryDataProvider;
         $this->manufacturerDataProvider = $manufacturerDataProvider;
         $this->featureDataProvider = $featureDataProvider;
@@ -148,7 +146,7 @@ class ProductInformation extends CommonAbstractType
         $this->locales = $this->context->getLanguages();
         $this->currency = $this->context->getContext()->currency;
 
-        $this->categories = $this->formatDataChoicesList(
+        $this->categories = FormHelper::formatDataChoicesList(
             $this->categoryDataProvider->getAllCategoriesName(
                 $root_category = null,
                 $id_lang = false,
@@ -163,7 +161,7 @@ class ProductInformation extends CommonAbstractType
             $active = false
         );
 
-        $this->manufacturers = $this->formatDataChoicesList(
+        $this->manufacturers = FormHelper::formatDataChoicesList(
             $this->manufacturerDataProvider->getManufacturers(
                 $get_nb_products = false,
                 $id_lang = 0,
@@ -218,11 +216,21 @@ class ProductInformation extends CommonAbstractType
             ])
             ->add('name', TranslateType::class, [
                 'type' => FormType\TextType::class,
+                'help' => $this->translator->trans(
+                    'Invalid characters are: %invalidCharacters%',
+                    ['%invalidCharacters%' => '<>;=#{}'],
+                    'Admin.Catalog.Feature'
+                ),
                 'options' => [
                     'constraints' => [
                         new Assert\Regex([
                             'pattern' => '/[<>;=#{}]/',
                             'match' => false,
+                            'message' => $this->translator->trans(
+                                'This field contains invalid characters: %invalidCharacters%',
+                                ['%invalidCharacters%' => '<>;=#{}'],
+                                'Admin.Catalog.Feature'
+                            ),
                         ]),
                         new Assert\NotBlank(),
                         new Assert\Length(['min' => 3, 'max' => 128]),
@@ -284,10 +292,7 @@ class ProductInformation extends CommonAbstractType
             ->add('id_manufacturer', FormType\ChoiceType::class, [
                 'choices' => $this->manufacturers,
                 'required' => false,
-                'attr' => [
-                    'data-toggle' => 'select2',
-                    'data-minimumResultsForSearch' => '7',
-                ],
+                'autocomplete' => true,
                 'label' => $this->translator->trans('Brand', [], 'Admin.Catalog.Feature'),
                 'placeholder' => $this->translator->trans('Choose a brand', [], 'Admin.Catalog.Feature'),
             ])

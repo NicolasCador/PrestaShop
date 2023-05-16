@@ -52,12 +52,12 @@ use PrestaShop\PrestaShop\Core\Domain\Theme\Exception\ThemeException;
 use PrestaShop\PrestaShop\Core\Domain\Theme\ValueObject\ThemeImportSource;
 use PrestaShop\PrestaShop\Core\Domain\Theme\ValueObject\ThemeName;
 use PrestaShop\PrestaShop\Core\Form\FormHandlerInterface;
+use PrestaShop\PrestaShop\Core\Security\Permission;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController as AbstractAdminController;
 use PrestaShopBundle\Form\Admin\Improve\Design\Theme\AdaptThemeToRTLLanguagesType;
 use PrestaShopBundle\Form\Admin\Improve\Design\Theme\ImportThemeType;
 use PrestaShopBundle\Security\Annotation\AdminSecurity;
 use PrestaShopBundle\Security\Annotation\DemoRestricted;
-use PrestaShopBundle\Security\Voter\PageVoter;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -97,7 +97,7 @@ class ThemeController extends AbstractAdminController
             'faviconPath' => $logoProvider->getFaviconPath(),
             'currentlyUsedTheme' => $themeProvider->getCurrentlyUsedTheme(),
             'notUsedThemes' => $themeProvider->getNotUsedThemes(),
-            'isDevModeOn' => $this->get('prestashop.adapter.legacy.configuration')->get('_PS_MODE_DEV_'),
+            'isDevModeOn' => $this->getConfiguration()->get('_PS_MODE_DEV_'),
             'isSingleShopContext' => $this->get('prestashop.adapter.shop.context')->isSingleShopContext(),
             'isMultiShopFeatureUsed' => $this->get('prestashop.adapter.multistore_feature')->isUsed(),
             'adaptThemeToRtlLanguagesForm' => $this->getAdaptThemeToRtlLanguageForm()->createView(),
@@ -236,6 +236,7 @@ class ThemeController extends AbstractAdminController
 
         return $this->render('@PrestaShop/Admin/Improve/Design/Theme/import.html.twig', [
             'importThemeForm' => $importThemeForm->createView(),
+            'layoutTitle' => $this->trans('Theme import', 'Admin.Navigation.Menu'),
         ]);
     }
 
@@ -257,7 +258,7 @@ class ThemeController extends AbstractAdminController
     {
         try {
             $this->getCommandBus()->handle(new EnableThemeCommand(new ThemeName($themeName)));
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (ThemeException $e) {
             $this->addFlash(
                 'error',
@@ -294,7 +295,7 @@ class ThemeController extends AbstractAdminController
 
             $this->addFlash(
                 'success',
-                $this->trans('Successful deletion.', 'Admin.Notifications.Success')
+                $this->trans('Successful deletion', 'Admin.Notifications.Success')
             );
         } catch (ThemeException $e) {
             $this->addFlash('error', $this->handleDeleteThemeException($e));
@@ -415,7 +416,7 @@ class ThemeController extends AbstractAdminController
             $themePageLayoutsCustomizer = $this->get('prestashop.core.addon.theme.theme.page_layouts_customizer');
             $themePageLayoutsCustomizer->customize($pageLayoutCustomizationForm->getData()['layouts']);
 
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
 
             return $this->redirectToRoute('admin_themes_index');
         }
@@ -423,6 +424,7 @@ class ThemeController extends AbstractAdminController
         return $this->render('@PrestaShop/Admin/Improve/Design/Theme/customize_page_layouts.html.twig', [
             'pageLayoutCustomizationForm' => $pageLayoutCustomizationForm->createView(),
             'pages' => $pages,
+            'layoutTitle' => $this->trans('Choose layouts', 'Admin.Navigation.Menu'),
         ]);
     }
 
@@ -434,7 +436,7 @@ class ThemeController extends AbstractAdminController
     protected function canCustomizePageLayouts(Request $request)
     {
         return !$this->isDemoModeEnabled() &&
-            $this->isGranted(PageVoter::UPDATE, $request->attributes->get('_legacy_controller'));
+            $this->isGranted(Permission::UPDATE, $request->attributes->get('_legacy_controller'));
     }
 
     /**

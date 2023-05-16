@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -29,6 +28,7 @@ namespace Tests\Integration\PrestaShopBundle\Translation;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Translation\MessageCatalogue;
+use Symfony\Component\Translation\MessageCatalogueInterface;
 
 /**
  * Used to match a MessageCatalogue against an expected one
@@ -51,10 +51,10 @@ class CatalogueVerifier
     /**
      * Verifies that the provided catalogue contains all the strings and domains as defined in $expected
      *
-     * @param MessageCatalogue $messageCatalogue The catalogue to test
+     * @param MessageCatalogueInterface $messageCatalogue The catalogue to test
      * @param array[] $expected An array of domainName => messages
      */
-    public function assertCataloguesMatch(MessageCatalogue $messageCatalogue, $expected)
+    public function assertCataloguesMatch(MessageCatalogueInterface $messageCatalogue, $expected)
     {
         $domains = $messageCatalogue->getDomains();
 

@@ -26,7 +26,7 @@ import $ from 'jquery';
 import prestashop from 'prestashop';
 import {refreshCheckoutPage} from './common';
 
-$(document).ready(() => {
+$(() => {
   prestashop.on('updateCart', (event) => {
     prestashop.cart = event.resp.cart;
     const getCartViewUrl = $('.js-cart').data('refresh-url');
@@ -142,16 +142,23 @@ $(document).ready(() => {
 
     $.post(actionURL, query, null, 'json')
       .then((resp) => {
-        prestashop.emit('updateCart', {
-          reason: {
-            idProduct: resp.id_product,
-            idProductAttribute: resp.id_product_attribute,
-            idCustomization: resp.id_customization,
-            linkAction: 'add-to-cart',
-            cart: resp.cart,
-          },
-          resp,
-        });
+        if (!resp.hasError) {
+          prestashop.emit('updateCart', {
+            reason: {
+              idProduct: resp.id_product,
+              idProductAttribute: resp.id_product_attribute,
+              idCustomization: resp.id_customization,
+              linkAction: 'add-to-cart',
+              cart: resp.cart,
+            },
+            resp,
+          });
+        } else {
+          prestashop.emit('handleError', {
+            eventType: 'addProductToCart',
+            resp,
+          });
+        }
       })
       .fail((resp) => {
         prestashop.emit('handleError', {

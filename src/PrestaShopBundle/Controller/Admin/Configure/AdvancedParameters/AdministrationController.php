@@ -27,10 +27,10 @@
 namespace PrestaShopBundle\Controller\Admin\Configure\AdvancedParameters;
 
 use PrestaShop\PrestaShop\Core\Form\FormHandlerInterface;
+use PrestaShop\PrestaShop\Core\Http\CookieOptions;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use PrestaShopBundle\Controller\Exception\FieldNotFoundException;
 use PrestaShopBundle\Form\Admin\Configure\AdvancedParameters\Administration\FormDataProvider;
-use PrestaShopBundle\Form\Admin\Configure\AdvancedParameters\Administration\GeneralDataProvider;
 use PrestaShopBundle\Form\Admin\Configure\AdvancedParameters\Administration\GeneralType;
 use PrestaShopBundle\Form\Admin\Configure\AdvancedParameters\Administration\UploadQuotaType;
 use PrestaShopBundle\Form\Exception\DataProviderException;
@@ -207,7 +207,9 @@ class AdministrationController extends FrameworkBundleAdminController
     }
 
     /**
-     * @var InvalidConfigurationDataErrorCollection
+     * @param InvalidConfigurationDataErrorCollection $errors
+     *
+     * @return array<int, string>
      */
     private function getErrorMessages(InvalidConfigurationDataErrorCollection $errors): array
     {
@@ -242,12 +244,12 @@ class AdministrationController extends FrameworkBundleAdminController
                     'Admin.Notifications.Error',
                     [
                         $this->getFieldLabel($error->getFieldName()),
-                        GeneralDataProvider::MAX_COOKIE_VALUE,
+                        CookieOptions::MAX_COOKIE_VALUE,
                     ]
                 );
             case FormDataProvider::ERROR_COOKIE_SAMESITE_NONE:
                 return $this->trans(
-                    'The SameSite=None is only available in secure mode.',
+                    'The SameSite=None attribute is only available in secure mode.',
                     'Admin.Advparameters.Notification'
                 );
         }
@@ -257,7 +259,7 @@ class AdministrationController extends FrameworkBundleAdminController
             'Admin.Notifications.Error',
             [
                 $this->getFieldLabel($error->getFieldName()),
-                GeneralDataProvider::MAX_COOKIE_VALUE,
+                CookieOptions::MAX_COOKIE_VALUE,
             ]
         );
     }

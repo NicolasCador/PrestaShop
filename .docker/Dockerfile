@@ -1,6 +1,10 @@
-FROM prestashop/prestashop-git:latest
-
 # To run files with the same group as your primary user
+ARG VERSION
+
+FROM prestashop/base:$VERSION
+
+EXPOSE 443
+
 ARG GROUP_ID
 ARG USER_ID
 
@@ -15,7 +19,7 @@ RUN chown -R www-data:www-data /var/www/.npm
 RUN mkdir -p /var/www/.composer
 RUN chown -R www-data:www-data /var/www/.composer
 
-RUN curl -sL https://deb.nodesource.com/setup_14.x | bash -
+RUN curl -sL https://deb.nodesource.com/setup_16.x | bash -
 RUN apt install -y nodejs
 
 # Install mailutils to make sendmail work
@@ -23,4 +27,5 @@ RUN apt install -y \
     apt-utils \
     mailutils
 
+RUN php -r "copy('https://getcomposer.org/installer', '/tmp/composer-setup.php');" && php /tmp/composer-setup.php --no-ansi --install-dir=/usr/local/bin --filename=composer && rm -rf /tmp/composer-setup.php
 CMD ["/tmp/docker_run_git.sh"]

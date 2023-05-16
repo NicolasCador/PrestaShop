@@ -25,9 +25,13 @@
  */
 class DiscountControllerCore extends FrontController
 {
+    /** @var bool */
     public $auth = true;
+    /** @var string */
     public $php_self = 'discount';
+    /** @var string */
     public $authRedirection = 'discount';
+    /** @var bool */
     public $ssl = true;
 
     /**
@@ -41,14 +45,8 @@ class DiscountControllerCore extends FrontController
             Tools::redirect('index.php');
         }
 
-        $cart_rules = $this->getTemplateVarCartRules();
-
-        if (count($cart_rules) <= 0) {
-            $this->warning[] = $this->trans('You do not have any vouchers.', [], 'Shop.Notifications.Warning');
-        }
-
         $this->context->smarty->assign([
-            'cart_rules' => $cart_rules,
+            'cart_rules' => $this->getTemplateVarCartRules(),
         ]);
 
         parent::initContent();
@@ -186,7 +184,7 @@ class DiscountControllerCore extends FrontController
      */
     protected function buildCartRuleFromVoucher(array $voucher): array
     {
-        $voucher['voucher_date'] = Tools::displayDate($voucher['date_to'], null, false);
+        $voucher['voucher_date'] = Tools::displayDate($voucher['date_to'], false);
 
         if ((int) $voucher['minimum_amount'] === 0) {
             $voucher['voucher_minimal'] = $this->trans('None', [], 'Shop.Theme.Global');

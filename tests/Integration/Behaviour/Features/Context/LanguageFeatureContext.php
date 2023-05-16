@@ -27,10 +27,10 @@
 namespace Tests\Integration\Behaviour\Features\Context;
 
 use Configuration;
-use Db;
 use Language;
-use PrestaShopBundle\Install\DatabaseDump;
+use PHPUnit\Framework\Assert;
 use RuntimeException;
+use Tests\Resources\Resetter\LanguageResetter;
 
 class LanguageFeatureContext extends AbstractPrestaShopFeatureContext
 {
@@ -39,7 +39,7 @@ class LanguageFeatureContext extends AbstractPrestaShopFeatureContext
      */
     public static function restoreLanguagesTablesBeforeFeature(): void
     {
-        static::restoreLanguagesTables();
+        self::restoreLanguagesTables();
     }
 
     /**
@@ -47,28 +47,12 @@ class LanguageFeatureContext extends AbstractPrestaShopFeatureContext
      */
     public static function restoreLanguagesTablesAfterFeature(): void
     {
-        static::restoreLanguagesTables();
+        self::restoreLanguagesTables();
     }
 
     private static function restoreLanguagesTables(): void
     {
-        // Removing Language manually includes cleaning all related lang tables, this cleaning is handled in
-        // Language::delete in a more efficient way than relying on table restoration
-        $langIds = Db::getInstance()->executeS(sprintf('SELECT id_lang FROM %slang;', _DB_PREFIX_));
-        unset($langIds[0]);
-        foreach ($langIds as $langId) {
-            $lang = new Language($langId['id_lang']);
-            $lang->delete();
-        }
-
-        // We still restore lang table to reset increment ID
-        DatabaseDump::restoreTables(['lang', 'lang_shop']);
-
-        // Reset default language
-        Configuration::updateValue('PS_LANG_DEFAULT', 1);
-
-        // Restore static cache
-        Language::resetStaticCache();
+        LanguageResetter::resetLanguages();
     }
 
     /**
@@ -76,7 +60,7 @@ class LanguageFeatureContext extends AbstractPrestaShopFeatureContext
      */
     public function restoreLanguageTablesOnDemand(): void
     {
-        static::restoreLanguagesTables();
+        self::restoreLanguagesTables();
     }
 
     /**
@@ -141,5 +125,19 @@ class LanguageFeatureContext extends AbstractPrestaShopFeatureContext
         if ($language->locale !== $locale) {
             throw new RuntimeException(sprintf('Currency "%s" has "%s" iso code, but "%s" was expected.', $reference, $language->locale, $locale));
         }
+    }
+
+    /**
+     *  @Given /^the robots.txt file has(n't|) a rule where the directory "([^"]*)" is allowed$/
+     */
+    public function robotsTxtAllowsDirectory(string $isAllowedString, string $directory): void
+    {
+        $isAllowed = $isAllowedString === '';
+        $robotsTxtFile = file_get_contents(_PS_ROOT_DIR_ . '/robots.txt');
+
+        Assert::assertSame(
+            $isAllowed,
+            strpos($robotsTxtFile, 'Disallow: ' . $directory . "\n") !== false
+        );
     }
 }

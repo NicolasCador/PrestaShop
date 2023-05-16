@@ -228,7 +228,17 @@ function updateProduct(event, eventType, updateUrl) {
         $(prestashop.selectors.product.customization)
           .first()
           .replaceWith(data.product_customization);
-        $(prestashop.selectors.product.inputCustomization).val(0);
+
+        // refill customizationId input value when updating quantity or combination
+        if (
+          (eventType === 'updatedProductQuantity' || eventType === 'updatedProductCombination')
+          && data.id_customization
+        ) {
+          $(prestashop.selectors.cart.productCustomizationId).val(data.id_customization);
+        } else {
+          $(prestashop.selectors.product.inputCustomization).val(0);
+        }
+
         $(prestashop.selectors.product.variantsUpdate)
           .first()
           .replaceWith(data.product_variants);
@@ -351,7 +361,7 @@ function showError($container, textError) {
   $container.replaceWith($error);
 }
 
-$(document).ready(() => {
+$(() => {
   const $productActions = $(prestashop.selectors.product.actions);
 
   // Listen on all form elements + those who have a data-product-attribute

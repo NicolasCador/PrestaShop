@@ -32,7 +32,6 @@ use PrestaShop\PrestaShop\Core\Domain\Profile\Query\GetProfileForEditing;
 use PrestaShop\PrestaShop\Core\Domain\Profile\QueryHandler\GetProfileForEditingHandlerInterface;
 use PrestaShop\PrestaShop\Core\Domain\Profile\QueryResult\EditableProfile;
 use PrestaShop\PrestaShop\Core\Domain\Profile\ValueObject\ProfileId;
-use PrestaShop\PrestaShop\Core\Image\Parser\ImageTagSourceParser;
 use PrestaShop\PrestaShop\Core\Image\Parser\ImageTagSourceParserInterface;
 use Profile;
 
@@ -41,6 +40,10 @@ use Profile;
  */
 final class GetProfileForEditingHandler extends AbstractObjectModelHandler implements GetProfileForEditingHandlerInterface
 {
+    /**
+     * @var string
+     */
+    private $defaultAvatarUrl;
     /**
      * @var ImageTagSourceParserInterface
      */
@@ -51,24 +54,24 @@ final class GetProfileForEditingHandler extends AbstractObjectModelHandler imple
     private $imgDir;
 
     /**
-     * @param ImageTagSourceParserInterface|null $imageTagSourceParser
+     * @param ImageTagSourceParserInterface $imageTagSourceParser
      * @param string $imgDir
+     * @param string $defaultAvatarUrl
      */
     public function __construct(
-        ImageTagSourceParserInterface $imageTagSourceParser = null,
+        string $defaultAvatarUrl,
+        ImageTagSourceParserInterface $imageTagSourceParser,
         string $imgDir = _PS_PROFILE_IMG_DIR_
     ) {
         $this->imgDir = $imgDir;
-        if (null === $imageTagSourceParser) {
-            @trigger_error('The $imageTagSourceParser parameter should not be null, inject your main ImageTagSourceParserInterface service', E_USER_DEPRECATED);
-        }
-        $this->imageTagSourceParser = $imageTagSourceParser ?? new ImageTagSourceParser(__PS_BASE_URI__);
+        $this->imageTagSourceParser = $imageTagSourceParser;
+        $this->defaultAvatarUrl = $defaultAvatarUrl;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function handle(GetProfileForEditing $query)
+    public function handle(GetProfileForEditing $query): EditableProfile
     {
         $profileId = $query->getProfileId();
         $profile = $this->getProfile($profileId);
@@ -78,7 +81,7 @@ final class GetProfileForEditingHandler extends AbstractObjectModelHandler imple
         return new EditableProfile(
             $profileId,
             $profile->name,
-            $avatarUrl ? $avatarUrl['path'] : null
+            $avatarUrl ? $avatarUrl['path'] : $this->defaultAvatarUrl
         );
     }
 

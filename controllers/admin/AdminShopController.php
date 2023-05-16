@@ -24,17 +24,17 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 use PrestaShop\PrestaShop\Core\Addon\Theme\ThemeManagerBuilder;
+use PrestaShopBundle\Utils\Tree;
 
+/**
+ * @property Shop|null $object
+ */
 class AdminShopControllerCore extends AdminController
 {
-    /**
-     * @var int
-     */
+    /** @var int */
     public $id_shop;
 
-    /**
-     * @var int
-     */
+    /** @var int|null */
     public $id_shop_group;
 
     public function __construct()
@@ -61,7 +61,7 @@ class AdminShopControllerCore extends AdminController
                 'class' => 'fixed-width-xs',
             ],
             'name' => [
-                'title' => $this->trans('Shop name', [], 'Admin.Shopparameters.Feature'),
+                'title' => $this->trans('Store name', [], 'Admin.Shopparameters.Feature'),
                 'filter_key' => 'a!name',
                 'width' => 200,
             ],
@@ -96,12 +96,12 @@ class AdminShopControllerCore extends AdminController
     {
         parent::initPageHeaderToolbar();
 
-        if (!$this->display && $this->id_shop_group) {
+        if (!$this->display) {
             if ($this->id_object) {
                 $this->loadObject();
             }
 
-            if (!$this->id_shop_group && $this->object && $this->object->id_shop_group) {
+            if (!$this->id_shop_group && is_object($this->object) && $this->object->id_shop_group) {
                 $this->id_shop_group = $this->object->id_shop_group;
             }
 
@@ -168,13 +168,13 @@ class AdminShopControllerCore extends AdminController
         $shops_tree->setNodeFolderTemplate('shop_tree_node_folder.tpl')->setNodeItemTemplate('shop_tree_node_item.tpl')
             ->setHeaderTemplate('shop_tree_header.tpl')->setActions([
                 new TreeToolbarLink(
-                    'Collapse All',
+                    'Collapse all',
                     '#',
                     '$(\'#' . $shops_tree->getId() . '\').tree(\'collapseAll\'); return false;',
                     'icon-collapse-alt'
                 ),
                 new TreeToolbarLink(
-                    'Expand All',
+                    'Expand all',
                     '#',
                     '$(\'#' . $shops_tree->getId() . '\').tree(\'expandAll\'); return false;',
                     'icon-expand-alt'
@@ -227,14 +227,26 @@ class AdminShopControllerCore extends AdminController
     public function displayAjaxGetCategoriesFromRootCategory()
     {
         if (Tools::isSubmit('id_category')) {
-            $selected_cat = [(int) Tools::getValue('id_category')];
-            $children = Category::getChildren((int) Tools::getValue('id_category'), $this->context->language->id);
-            foreach ($children as $child) {
-                $selected_cat[] = $child['id_category'];
-            }
+            $getId = function ($category) {
+                return (int) $category['id_category'];
+            };
+
+            $languageId = $this->context->language->id;
+            $getChildren = function (array $category) use ($languageId, $getId) {
+                return Category::getChildren($getId($category), $languageId);
+            };
+
+            // selected categories ids.
+            $selectedCategories = Tree::extractChildrenId(
+                [
+                    ['id_category' => (int) Tools::getValue('id_category')],
+                ],
+                $getChildren,
+                $getId
+            );
 
             $helper = new HelperTreeCategories('categories-tree', null, (int) Tools::getValue('id_category'), null, false);
-            $this->content = $helper->setSelectedCategories($selected_cat)->setUseSearch(true)->setUseCheckBox(true)
+            $this->content = $helper->setSelectedCategories($selectedCategories)->setUseSearch(true)->setUseCheckBox(true)
                 ->render();
         }
         parent::displayAjax();
@@ -271,6 +283,11 @@ class AdminShopControllerCore extends AdminController
         return $result;
     }
 
+    /**
+     * @return bool
+     *
+     * @throws PrestaShopException
+     */
     public function processDelete()
     {
         if (!Validate::isLoadedObject($object = $this->loadObject())) {
@@ -290,7 +307,7 @@ class AdminShopControllerCore extends AdminController
     /**
      * @param Shop $new_shop
      *
-     * @return bool
+     * @return ObjectModel|bool
      */
     protected function afterAdd($new_shop)
     {
@@ -362,6 +379,13 @@ class AdminShopControllerCore extends AdminController
         $this->context->smarty->assign('shops_having_dependencies', $shop_delete_list);
     }
 
+    /**
+     * @return string|void
+     *
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     * @throws SmartyException
+     */
     public function renderForm()
     {
         if (!($obj = $this->loadObject(true))) {
@@ -371,14 +395,14 @@ class AdminShopControllerCore extends AdminController
 
         $this->fields_form = [
             'legend' => [
-                'title' => $this->trans('Shop', [], 'Admin.Global'),
+                'title' => $this->trans('Store', [], 'Admin.Global'),
                 'icon' => 'icon-shopping-cart',
             ],
             'identifier' => 'shop_id',
             'input' => [
                 [
                     'type' => 'text',
-                    'label' => $this->trans('Shop name', [], 'Admin.Shopparameters.Feature'),
+                    'label' => $this->trans('Store name', [], 'Admin.Shopparameters.Feature'),
                     'desc' => [
                         $this->trans('This field does not refer to the shop name visible in the front office.', [], 'Admin.Shopparameters.Help'),
                         $this->trans('Follow [1]this link[/1] to edit the shop name used on the front office.', [
@@ -460,6 +484,7 @@ class AdminShopControllerCore extends AdminController
             'type' => 'select',
             'label' => $this->trans('Category root', [], 'Admin.Catalog.Feature'),
             'desc' => $this->trans('This is the root category of the store that you\'ve created. To define a new root category for your store, [1]please click here[/1].', [
+                '_raw' => true,
                 '[1]' => '<a href="' . $this->context->link->getAdminLink('AdminCategories') . '&addcategoryroot" target="_blank">',
                 '[/1]' => '</a>',
             ], 'Admin.Shopparameters.Help'),
@@ -562,7 +587,6 @@ class AdminShopControllerCore extends AdminController
             'group' => $this->trans('Customer groups', [], 'Admin.Advparameters.Feature'),
             'tax_rules_group' => $this->trans('Tax rules groups', [], 'Admin.Advparameters.Feature'),
             'supplier' => $this->trans('Suppliers', [], 'Admin.Global'),
-            'referrer' => $this->trans('Referrers/affiliates', [], 'Admin.Advparameters.Feature'),
             'zone' => $this->trans('Zones', [], 'Admin.International.Feature'),
             'cart_rule' => $this->trans('Cart rules', [], 'Admin.Advparameters.Feature'),
         ];
@@ -655,7 +679,12 @@ class AdminShopControllerCore extends AdminController
     }
 
     /**
-     * Object creation.
+     * Object creation
+     *
+     * @return Shop|void
+     *
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
      */
     public function processAdd()
     {
@@ -679,7 +708,7 @@ class AdminShopControllerCore extends AdminController
             if (!$object->add()) {
                 $this->errors[] = $this->trans('An error occurred while creating an object.', [], 'Admin.Notifications.Error') .
                     ' <b>' . $this->table . ' (' . Db::getInstance()->getMsgError() . ')</b>';
-            } elseif (($_POST[$this->identifier] = $object->id) && $this->postImage($object->id) && !count($this->errors) && $this->_redirect) {
+            } elseif (($_POST[$this->identifier] = $object->id) && $this->postImage($object->id) && empty($this->errors) && $this->_redirect) {
                 // voluntary do affectation here
                 $parent_id = (int) Tools::getValue('id_parent', 1);
                 $this->afterAdd($object);
@@ -709,7 +738,7 @@ class AdminShopControllerCore extends AdminController
         array_unshift($categories, Configuration::get('PS_ROOT_CATEGORY'));
         Category::updateFromShop($categories, $object->id);
         if (Tools::getValue('useImportData') && ($import_data = Tools::getValue('importData')) && is_array($import_data) && isset($import_data['product'])) {
-            ini_set('max_execution_time', 7200); // like searchcron.php
+            ini_set('max_execution_time', '7200');
             Search::indexation(true);
         }
 

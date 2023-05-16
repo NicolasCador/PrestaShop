@@ -23,10 +23,7 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  *-->
 <template>
-  <div
-    id="search"
-    class="col-md-8 mb-4"
-  >
+  <div id="search">
     <form
       class="search-form"
       @submit.prevent
@@ -55,15 +52,17 @@
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
   import PSTags from '@app/widgets/ps-tags.vue';
   import PSButton from '@app/widgets/ps-button.vue';
+  import {defineComponent} from 'vue';
+  import TranslationMixin from '@app/pages/translations/mixins/translate';
 
-  export default Vue.extend({
+  export default defineComponent({
     components: {
       PSTags,
       PSButton,
     },
+    mixins: [TranslationMixin],
     methods: {
       onClick() {
         const refPsTags = this.$refs.psTags as VTags;

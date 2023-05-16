@@ -34,7 +34,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  */
 abstract class ControllerCore
 {
-    const SERVICE_LOCALE_REPOSITORY = 'prestashop.core.localization.locale.repository';
+    public const SERVICE_LOCALE_REPOSITORY = 'prestashop.core.localization.locale.repository';
+    public const SERVICE_MULTISTORE_FEATURE = 'prestashop.adapter.multistore_feature';
 
     /**
      * @var Context
@@ -187,7 +188,6 @@ abstract class ControllerCore
             ]
         );
 
-        /* @phpstan-ignore-next-line */
         if (_PS_MODE_DEV_ && $this->controller_type == 'admin' && !($this instanceof AdminLegacyLayoutControllerCore)) {
             set_error_handler([__CLASS__, 'myErrorHandler']);
         }
@@ -346,8 +346,6 @@ abstract class ControllerCore
 
     protected function trans($id, array $parameters = [], $domain = null, $locale = null)
     {
-        $parameters['legacy'] = 'htmlspecialchars';
-
         return $this->translator->trans($id, $parameters, $domain, $locale);
     }
 
@@ -558,23 +556,6 @@ abstract class ControllerCore
     }
 
     /**
-     * Adds jQuery library file to queued JS file list.
-     *
-     * @param string|null $version jQuery library version
-     * @param string|null $folder jQuery file folder
-     * @param bool $minifier if set tot true, a minified version will be included
-     *
-     * @deprecated 1.7.7 jQuery is always included, this method should no longer be used
-     */
-    public function addJquery($version = null, $folder = null, $minifier = true)
-    {
-        @trigger_error(
-            'Controller->addJquery() is deprecated since version 1.7.7.0, jQuery is always included',
-            E_USER_DEPRECATED
-        );
-    }
-
-    /**
      * Adds jQuery UI component(s) to queued JS file list.
      *
      * @param string|array $component
@@ -589,7 +570,7 @@ abstract class ControllerCore
 
         foreach ($component as $ui) {
             $ui_path = Media::getJqueryUIPath($ui, $theme, $check_dependencies);
-            $this->addCSS($ui_path['css'], 'all', false);
+            $this->addCSS($ui_path['css'], 'all');
             $this->addJS($ui_path['js'], false);
         }
     }
@@ -781,7 +762,7 @@ abstract class ControllerCore
          * use 'actionAjaxDie'.$controller.$method.'Before' instead
          */
         Hook::exec('actionBeforeAjaxDie' . $controller . $method, ['value' => $value]);
-        Hook::exec('actionAjaxDie' . $controller . $method . 'Before', ['value' => $value]);
+        Hook::exec('actionAjaxDie' . $controller . $method . 'Before', ['value' => &$value]);
         header('Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0');
 
         echo $value;
@@ -830,5 +811,15 @@ abstract class ControllerCore
     public function getContainer()
     {
         return $this->container;
+    }
+
+    /**
+     * Check if multistore feature is enabled.
+     *
+     * @return bool
+     */
+    public function isMultistoreEnabled(): bool
+    {
+        return $this->get(static::SERVICE_MULTISTORE_FEATURE)->isUsed();
     }
 }

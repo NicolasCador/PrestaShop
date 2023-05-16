@@ -49,7 +49,7 @@ class HookManager
      *
      * @throws CoreException
      *
-     * @return string|array|void modules output
+     * @return string|array|void|null modules output
      */
     public function exec(
         $hook_name,
@@ -100,5 +100,10 @@ class HookManager
                 }
             }
         }
+    }
+
+    public function disableHooksForModule(int $moduleId): void
+    {
+        Hook::disableHooksForModule($moduleId);
     }
 }

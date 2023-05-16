@@ -28,11 +28,22 @@
       <tr class="column-headers">
         <th
           scope="col"
+        >
+          <PSSort
+            order="product_id"
+            @sort="sort"
+            :current-sort="currentSort"
+          >
+            {{ trans('title_product_id') }}
+          </PSSort>
+        </th>
+        <th
+          scope="col"
           width="27%"
           class="product-title"
         >
           <PSSort
-            order="product"
+            order="product_name"
             @sort="sort"
             :current-sort="currentSort"
           >
@@ -88,8 +99,8 @@
       </tr>
     </thead>
     <tbody>
-      <tr v-if="this.isLoading">
-        <td colspan="8">
+      <tr v-if="isLoading">
+        <td colspan="9">
           <PSLoader
             v-for="(n, index) in 3"
             class="mt-1"
@@ -104,7 +115,7 @@
         </td>
       </tr>
       <tr v-else-if="emptyProducts">
-        <td colspan="8">
+        <td colspan="9">
           <PSAlert
             alert-type="ALERT_TYPE_WARNING"
             :has-close="false"
@@ -124,11 +135,12 @@
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
   import PSAlert from '@app/widgets/ps-alert.vue';
   import PSTable from '@app/widgets/ps-table/ps-table.vue';
   import PSSort from '@app/widgets/ps-table/ps-sort.vue';
   import PSLoader from '@app/widgets/ps-loader.vue';
+  import {defineComponent} from 'vue';
+  import TranslationMixin from '@app/pages/stock/mixins/translate';
   import ProductLine from './product-line.vue';
 
   /* eslint-disable camelcase */
@@ -161,13 +173,14 @@
   }
   /* eslint-enable camelcase */
 
-  export default Vue.extend({
+  export default defineComponent({
     props: {
       isLoading: {
         type: Boolean,
         required: true,
       },
     },
+    mixins: [TranslationMixin],
     components: {
       ProductLine,
       PSSort,
@@ -178,6 +191,7 @@
     methods: {
       sort(order: string, sortDirection: string): void {
         this.$store.dispatch('updateOrder', order);
+        this.$store.dispatch('updateSort', sortDirection);
         this.$emit('sort', sortDirection === 'desc' ? 'desc' : 'asc');
       },
     },

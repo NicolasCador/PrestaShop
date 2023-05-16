@@ -35,8 +35,9 @@
       :value="value"
       placeholder="0"
       @keyup="onKeyup($event)"
+      @keydown="onKeydown($event)"
       @focus="focusIn"
-      @blur.native="focusOut($event)"
+      @blur="focusOut($event)"
     >
     <div
       class="ps-number-spinner d-flex"
@@ -55,12 +56,12 @@
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
+  import {defineComponent} from 'vue';
 
-  export default Vue.extend({
+  export default defineComponent({
     props: {
       value: {
-        type: Number,
+        type: [Number, String],
         default: 0,
       },
       danger: {
@@ -77,22 +78,24 @@
       },
     },
     methods: {
-      onKeyup($event: JQueryEventObject): void {
+      onKeyup($event: Event): void {
         this.$emit('keyup', $event);
+      },
+      onKeydown($event: Event): void {
+        this.$emit('keydown', $event);
       },
       focusIn(): void {
         this.$emit('focus');
       },
-      focusOut($event: JQueryEventObject): void {
+      focusOut($event: Event): void {
         this.$emit('blur', $event);
       },
-      increment(): void {
-        const value = Math.round(this.value);
-
-        this.$emit('change', Number.isNaN(value) ? 0 : value + 1);
+      increment() {
+        const value = Number.isNaN(this.value) ? 0 : Number.parseInt(<string> this.value, 10);
+        this.$emit('change', Number.isNaN(value) ? 1 : value + 1);
       },
       decrement(): void {
-        const value = Math.round(this.value);
+        const value = Number.isNaN(this.value) ? 0 : Number.parseInt(<string> this.value, 10);
         this.$emit('change', Number.isNaN(value) ? -1 : value - 1);
       },
     },

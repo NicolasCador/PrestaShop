@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -75,6 +74,10 @@ class DatabaseTranslationLoader implements LoaderInterface
 
         if (!array_key_exists($locale, $langs)) {
             $langs[$locale] = $this->entityManager->getRepository(Lang::class)->findOneBy(['locale' => $locale]);
+        }
+
+        if ($langs[$locale] === null) {
+            return $catalogue;
         }
 
         /** @var EntityRepository $translationRepository */

@@ -62,9 +62,6 @@
     var new_msg = '{l s='A new message was posted on your shop.' js=1 d='Admin.Navigation.Header'}';
     var see_msg = '{l s='Read this message' js=1 d='Admin.Navigation.Header'}';
     var token = '{$token|addslashes}';
-    var token_admin_orders = tokenAdminOrders = '{getAdminToken tab='AdminOrders'}';
-    var token_admin_customers = '{getAdminToken tab='AdminCustomers'}';
-    var token_admin_customer_threads = tokenAdminCustomerThreads = '{getAdminToken tab='AdminCustomerThreads'}';
     var currentIndex = '{$currentIndex|@addcslashes:'\''}';
     var employee_token = '{getAdminToken tab='AdminEmployees'}';
     var choose_language_translate = '{l s='Choose language:' js=1 d='Admin.Actions'}';
@@ -72,11 +69,16 @@
     var admin_modules_link = '{$link->getAdminLink("AdminModulesSf", true, ['route' => "admin_module_manage"])|addslashes}';
     var admin_notification_get_link = '{$link->getAdminLink("AdminCommon")|addslashes}';
     var admin_notification_push_link = adminNotificationPushLink = '{$link->getAdminLink("AdminCommon", true, ['route' => 'admin_common_notifications_ack'])|addslashes}';
-    var tab_modules_list = '{if isset($tab_modules_list) && $tab_modules_list}{$tab_modules_list|addslashes}{/if}';
     var update_success_msg = '{l s='Update successful' js=1 d='Admin.Notifications.Success'}';
     var search_product_msg = '{l s='Search for a product' js=1 d='Admin.Orderscustomers.Feature'}';
   </script>
 {/if}
+
+{$admin_path = "{__PS_BASE_URI__}{basename(_PS_ADMIN_DIR_)}/themes/new-theme/public/"}
+
+{$preloadFilePath = "../public/preload.tpl"}
+
+{include file=$preloadFilePath admin_dir=$admin_path}
 
 {if isset($css_files)}
   {foreach from=$css_files key=css_uri item=media}

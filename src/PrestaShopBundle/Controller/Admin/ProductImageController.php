@@ -26,7 +26,8 @@
 
 namespace PrestaShopBundle\Controller\Admin;
 
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+use ImageManager;
+use PrestaShop\PrestaShop\Adapter\Product\AdminProductWrapper;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +35,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major.
+ *
  * Admin controller for product images.
  */
 class ProductImageController extends FrameworkBundleAdminController
@@ -49,7 +52,7 @@ class ProductImageController extends FrameworkBundleAdminController
     public function uploadImageAction($idProduct, Request $request)
     {
         $response = new JsonResponse();
-        $adminProductWrapper = $this->get('prestashop.adapter.admin.wrapper.product');
+        $adminProductWrapper = $this->get(AdminProductWrapper::class);
         $return_data = [];
 
         if ($idProduct == 0 || !$request->isXmlHttpRequest()) {
@@ -61,7 +64,22 @@ class ProductImageController extends FrameworkBundleAdminController
                 'error_bubbling' => true,
                 'constraints' => [
                     new Assert\NotNull(['message' => $this->trans('Please select a file', 'Admin.Catalog.Feature')]),
-                    new Assert\Image(['maxSize' => $this->configuration->get('PS_ATTACHMENT_MAXIMUM_SIZE') . 'M']),
+                    new Assert\Image(['maxSize' => $this->getConfiguration()->get('PS_ATTACHMENT_MAXIMUM_SIZE') . 'M']),
+                    new Assert\File([
+                        'mimeTypes' => [
+                            'image/gif',
+                            'image/jpeg',
+                            'image/png',
+                            'image/webp',
+                        ],
+                        'mimeTypesMessage' => $this->trans(
+                            'Image format not recognized, allowed formats are: %s',
+                            'Admin.Notifications.Error',
+                            [
+                                implode(', ', ImageManager::EXTENSIONS_SUPPORTED),
+                            ]
+                        ),
+                    ]),
                 ],
             ])
             ->getForm();
@@ -98,7 +116,7 @@ class ProductImageController extends FrameworkBundleAdminController
     public function updateImagePositionAction(Request $request)
     {
         $response = new JsonResponse();
-        $adminProductWrapper = $this->get('prestashop.adapter.admin.wrapper.product');
+        $adminProductWrapper = $this->get(AdminProductWrapper::class);
         $json = $request->request->get('json');
 
         if (!empty($json) && $request->isXmlHttpRequest()) {
@@ -111,17 +129,15 @@ class ProductImageController extends FrameworkBundleAdminController
     /**
      * Manage form image.
      *
-     * @Template("@PrestaShop/Admin/ProductImage/form.html.twig")
-     *
      * @param string|int $idImage
      * @param Request $request
      *
-     * @return array|JsonResponse|Response
+     * @return Response
      */
-    public function formAction($idImage, Request $request)
+    public function formAction($idImage, Request $request): Response
     {
         $locales = $this->get('prestashop.adapter.legacy.context')->getLanguages();
-        $adminProductWrapper = $this->get('prestashop.adapter.admin.wrapper.product');
+        $adminProductWrapper = $this->get(AdminProductWrapper::class);
         $productAdapter = $this->get('prestashop.adapter.data_provider.product');
 
         if ($idImage == 0 || !$request->isXmlHttpRequest()) {
@@ -165,10 +181,10 @@ class ProductImageController extends FrameworkBundleAdminController
             return $jsonResponse;
         }
 
-        return [
+        return $this->render('@PrestaShop/Admin/ProductImage/form.html.twig', [
             'image' => $image,
             'form' => $form->createView(),
-        ];
+        ]);
     }
 
     /**
@@ -182,7 +198,7 @@ class ProductImageController extends FrameworkBundleAdminController
     public function deleteAction($idImage, Request $request)
     {
         $response = new JsonResponse();
-        $adminProductWrapper = $this->get('prestashop.adapter.admin.wrapper.product');
+        $adminProductWrapper = $this->get(AdminProductWrapper::class);
 
         if (!$request->isXmlHttpRequest()) {
             return $response;

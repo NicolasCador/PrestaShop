@@ -38,7 +38,7 @@ use PrestaShop\PrestaShop\Core\Employee\ContextEmployeeProviderInterface;
 use PrestaShop\PrestaShop\Core\Localization\Locale;
 use PrestaShop\PrestaShop\Core\MailTemplate\Layout\LayoutInterface;
 use Product;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Tools;
 
 /**
@@ -227,7 +227,7 @@ final class MailPreviewVariablesBuilder
                 'firstname' => '<span style="font-weight:bold;">%s</span>',
                 'lastname' => '<span style="font-weight:bold;">%s</span>',
             ]),
-            '{date}' => Tools::displayDate($order->date_add, null, true),
+            '{date}' => Tools::displayDate($order->date_add, true),
             '{order_name}' => $order->getUniqReference(),
             '{id_order}' => $order->id,
             '{payment}' => Tools::substr($order->payment, 0, 255),

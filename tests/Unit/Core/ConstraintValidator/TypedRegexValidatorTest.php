@@ -27,14 +27,22 @@
 namespace Tests\Unit\Core\ConstraintValidator;
 
 use Generator;
-use PHPUnit\Framework\MockObject\MockObject;
+use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 use PrestaShop\PrestaShop\Core\ConstraintValidator\Constraints\TypedRegex;
 use PrestaShop\PrestaShop\Core\ConstraintValidator\TypedRegexValidator;
-use PrestaShop\PrestaShop\Core\String\CharacterCleaner;
 use Symfony\Component\Validator\Test\ConstraintValidatorTestCase;
 
 class TypedRegexValidatorTest extends ConstraintValidatorTestCase
 {
+    protected const ALLOW_ACCENTED_CHARS_CONFIG_NAME = 'PS_ALLOW_ACCENTED_CHARS_URL';
+
+    /**
+     * Modify this configuration data before creating new validator when needed to inject different configuration values into validator
+     */
+    protected $configurationData = [
+        self::ALLOW_ACCENTED_CHARS_CONFIG_NAME => '0',
+    ];
+
     public function testItSucceedsForNameTypeWhenValidCharactersGiven(): void
     {
         $value = 'goodname';
@@ -255,7 +263,7 @@ class TypedRegexValidatorTest extends ConstraintValidatorTestCase
 
     public function testItSucceedsForIsbnTypeWhenValidCharactersGiven(): void
     {
-        $this->validator->validate('-1780', new TypedRegex('isbn'));
+        $this->validator->validate('0-8044-2957-X', new TypedRegex('isbn'));
 
         $this->assertNoViolation();
     }
@@ -319,6 +327,158 @@ class TypedRegexValidatorTest extends ConstraintValidatorTestCase
     public function testItFailsForModuleNameTypeWhenInvalidCharactersGiven(string $invalidChar): void
     {
         $this->assertViolationIsRaised(new TypedRegex(['type' => 'module_name']), $invalidChar);
+    }
+
+    public function testItSucceedsForWebserviceKeyTypeWhenValidCharactersGiven(): void
+    {
+        $this->validator->validate('22XRNQR7X4RLAGCBSSNQIVPXQ271ZIKE', new TypedRegex(['type' => TypedRegex::TYPE_WEBSERVICE_KEY]));
+
+        $this->assertNoViolation();
+    }
+
+    /**
+     * @dataProvider getInvalidCharactersForWebserviceKey
+     *
+     * @param string $invalidChar
+     */
+    public function testItFailsForWebserviceKeyTypeWhenInvalidCharactersGiven(string $invalidChar): void
+    {
+        $this->assertViolationIsRaised(new TypedRegex(['type' => TypedRegex::TYPE_WEBSERVICE_KEY]), $invalidChar);
+    }
+
+    public function testItSucceedsForZipCodeFormatTypeWhenValidCharactersGiven(): void
+    {
+        $this->validator->validate('LLLNNNNCCClllnnnccc-1234567890', new TypedRegex(['type' => TypedRegex::TYPE_WEBSERVICE_KEY]));
+
+        $this->assertNoViolation();
+    }
+
+    /**
+     * @dataProvider getInvalidZipCodeFormats
+     *
+     * @param string $invalidChar
+     */
+    public function testItFailsForZipCodeFormatTypeWhenInvalidCharactersGiven(string $invalidChar): void
+    {
+        $this->assertViolationIsRaised(new TypedRegex(['type' => TypedRegex::TYPE_ZIP_CODE_FORMAT]), $invalidChar);
+    }
+
+    public function testItSucceedsForStateIsoCodeTypeWhenValidCharactersGiven(): void
+    {
+        $this->validator->validate('FRA', new TypedRegex(['type' => TypedRegex::TYPE_STATE_ISO_CODE]));
+
+        $this->assertNoViolation();
+    }
+
+    /**
+     * @dataProvider getInvalidCharactersForStateIsoCode
+     *
+     * @param string $invalidChar
+     */
+    public function testItFailsForStateIsoCodeTypeWhenInvalidCharactersGiven(string $invalidChar): void
+    {
+        $this->assertViolationIsRaised(new TypedRegex(['type' => TypedRegex::TYPE_STATE_ISO_CODE]), $invalidChar);
+    }
+
+    /**
+     * @dataProvider getDataForLinkRewriteTest
+     *
+     * @param string $value
+     *
+     * @return void
+     */
+    public function testLinkRewriteType(string $value, string $allowAccentedChars, bool $expectSuccess): void
+    {
+        $this->configurationData[self::ALLOW_ACCENTED_CHARS_CONFIG_NAME] = $allowAccentedChars;
+        $this->reinitializeValidator([
+            self::ALLOW_ACCENTED_CHARS_CONFIG_NAME => $allowAccentedChars,
+        ]);
+
+        $constraint = new TypedRegex(TypedRegex::TYPE_LINK_REWRITE);
+        $this->validator->validate($value, $constraint);
+
+        if ($expectSuccess) {
+            $this->assertNoViolation();
+        } else {
+            $this->buildViolation($constraint->message)
+                ->setParameter('%s', '"' . $value . '"')
+                ->assertRaised();
+        }
+    }
+
+    /**
+     * @dataProvider getDataForTestHTMLType
+     *
+     * @param string $value
+     * @param bool $expectSuccess
+     */
+    public function testHTMLType(string $value, bool $allowIframe, bool $expectSuccess): void
+    {
+        if ($allowIframe) {
+            $type = TypedRegex::CLEAN_HTML_ALLOW_IFRAME;
+        } else {
+            $type = TypedRegex::CLEAN_HTML_NO_IFRAME;
+        }
+
+        $constraint = new TypedRegex($type);
+
+        $this->validator->validate($value, $constraint);
+
+        if ($expectSuccess) {
+            $this->assertNoViolation();
+        } else {
+            $this->buildViolation($constraint->message)
+                ->setParameter('%s', '"' . $value . '"')
+                ->assertRaised();
+        }
+    }
+
+    public function getDataForTestHTMLType(): iterable
+    {
+        yield ['whatever', false, true];
+        yield ['whatever', true, true];
+        yield ['<html></html>', true, true];
+        yield ['<html></html>', false, true];
+        yield ['<div></div>', true, true];
+        yield ['<div></div>', false, true];
+        yield ['<iframe>', true, true];
+        yield ['<iframe>', false, false];
+        yield ['<script>', true, false];
+        yield ['<script>', false, false];
+
+        $events = [
+            'onmousedown', 'onmousemove', 'onmmouseup', 'onmouseover', 'onmouseout', 'onload', 'onunload', 'onfocus',
+            'onblur', 'onchange', 'onsubmit', 'ondblclick', 'onclick', 'onkeydown', 'onkeyup', 'onkeypress', 'onmouseenter',
+            'onmouseleave', 'onerror', 'onselect', 'onreset', 'onabort', 'ondragdrop', 'onresize', 'onactivate', 'onafterprint',
+            'onmoveend', 'onafterupdate', 'onbeforeactivate', 'onbeforecopy' . 'onbeforecut', 'onbeforedeactivate', 'onbeforeeditfocus',
+            'onbeforepaste', 'onbeforeprint', 'onbeforeunload', 'onbeforeupdate', 'onmove', 'onbounce', 'oncellchange',
+            'oncontextmenu', 'oncontrolselect', 'oncopy', 'oncut', 'ondataavailable', 'ondatasetchanged', 'ondatasetcomplete',
+            'ondeactivate', 'ondrag', 'ondragend', 'ondragenter', 'onmousewheel', 'ondragleave', 'ondragover', 'ondragstart',
+            'ondrop', 'onerrorupdate', 'onfilterchange', 'onfinish', 'onfocusin', 'onfocusout', 'onhashchange', 'onhelp',
+            'oninput', 'onlosecapture', 'onmessage', 'onmouseup', 'onmovestart', 'onoffline', 'ononline', 'onpaste', 'onpropertychange',
+            'onreadystatechange', 'onresizeend', 'onresizestart', 'onrowenter', 'onrowexit', 'onrowsdelete', 'onrowsinserted',
+            'onscroll', 'onsearch', 'onselectionchange', 'onselectstart', 'onstart',
+        ];
+
+        foreach ($events as $event) {
+            yield ["<div $event=\"whatever\">", true, false];
+            yield ["<div $event=\"whatever\">", false, false];
+        }
+    }
+
+    /**
+     * @return array[]
+     */
+    public function getDataForLinkRewriteTest(): array
+    {
+        return [
+            ['okay', '0', true],
+            ['Notebook-13', '0', true],
+            ['Notebook_3', '0', true],
+            ['notebook-ė', '0', false],
+            ['notebook-ė', '1', true],
+            ['notebook with spaces', '1', false],
+        ];
     }
 
     /**
@@ -598,27 +758,130 @@ class TypedRegexValidatorTest extends ConstraintValidatorTestCase
         yield ['|'];
     }
 
+    public function getInvalidCharactersForStateIsoCode(): Generator
+    {
+        yield ['FRANC'];
+        yield ['~'];
+        yield ['ˇ'];
+        yield ['"'];
+        yield ['@'];
+        yield ['#'];
+        yield ['€'];
+        yield ['$'];
+        yield ['£'];
+        yield ['%'];
+        yield ['&'];
+        yield ['§'];
+        yield ['/'];
+        yield ['('];
+        yield [')'];
+        yield ['='];
+        yield ['?'];
+        yield ['`'];
+        yield ['\\'];
+        yield ['}'];
+        yield [']'];
+        yield ['['];
+        yield ['{'];
+        yield ["'"];
+        yield ['*'];
+        yield ['.'];
+        yield [','];
+        yield [':'];
+        yield [';'];
+        yield ['<'];
+        yield ['>'];
+        yield ['|'];
+    }
+
+    /**
+     * @return Generator
+     */
+    public function getInvalidCharactersForWebServiceKey(): Generator
+    {
+        yield ['~'];
+        yield ['ˇ'];
+        yield ['"'];
+        yield ['€'];
+        yield ['$'];
+        yield ['£'];
+        yield ['%'];
+        yield ['&'];
+        yield ['§'];
+        yield ['/'];
+        yield ['('];
+        yield [')'];
+        yield ['='];
+        yield ['`'];
+        yield ['\\'];
+        yield ['\''];
+        yield ['}'];
+        yield [']'];
+        yield ['['];
+        yield ['{'];
+        yield ['*'];
+        yield ['.'];
+        yield [','];
+        yield [':'];
+        yield [';'];
+        yield ['<'];
+        yield ['>'];
+        yield ['|'];
+        yield [' '];
+    }
+
+    /**
+     * @return Generator
+     */
+    public function getInvalidZipCodeFormats(): Generator
+    {
+        yield ['A'];
+        yield ['NNA'];
+        yield ['1QER'];
+        yield ['123QDQ'];
+        yield ['LA'];
+        yield ['£'];
+        yield ['!'];
+        yield ['@'];
+        yield ['$'];
+        yield ['%s'];
+        yield ['^'];
+        yield ['&'];
+        yield ['*'];
+        yield ['('];
+        yield [')'];
+        yield ['+'];
+        yield ['='];
+        yield ['{'];
+        yield ['}'];
+        yield ['['];
+        yield ['['];
+        yield ['<'];
+        yield ['>'];
+        yield ['?'];
+        yield ['/'];
+        yield ['\\'];
+        yield ['\''];
+        yield [';'];
+        yield [':'];
+        yield ['.'];
+        yield [','];
+    }
+
     /**
      * @return TypedRegexValidator
      */
     protected function createValidator(): TypedRegexValidator
     {
-        return new TypedRegexValidator($this->createCharacterCleanersMock());
-    }
+        $configurationMock = $this->createMock(ConfigurationInterface::class);
+        $configurationMock->method('get')
+            ->willReturnMap(
+            [
+                ['PS_ALLOW_ACCENTED_CHARS_URL', $this->configurationData['PS_ALLOW_ACCENTED_CHARS_URL']],
+            ]
+        );
 
-    /**
-     * @return MockObject|CharacterCleaner
-     */
-    private function createCharacterCleanersMock()
-    {
-        $toolsMock = $this->getMockBuilder(CharacterCleaner::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $toolsMock
-            ->method('cleanNonUnicodeSupport')
-            ->will($this->returnArgument(0));
-
-        return $toolsMock;
+        return new TypedRegexValidator($configurationMock);
     }
 
     /**
@@ -632,5 +895,15 @@ class TypedRegexValidatorTest extends ConstraintValidatorTestCase
         $this->buildViolation($constraint->message)
             ->setParameter('%s', '"' . $invalidChar . '"')
             ->assertRaised();
+    }
+
+    /**
+     * Reinitialize validator when custom configuration data needs to be injected
+     */
+    private function reinitializeValidator(array $configurationData): void
+    {
+        $this->configurationData = $configurationData;
+        $this->validator = $this->createValidator();
+        $this->validator->initialize($this->context);
     }
 }

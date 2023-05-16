@@ -29,17 +29,24 @@ if (!defined('_PS_MODE_DEV_')) {
     define('_PS_MODE_DEV_', true);
 }
 /* Compatibility warning */
-define('_PS_DISPLAY_COMPATIBILITY_WARNING_', true);
+if (!defined('_PS_DISPLAY_COMPATIBILITY_WARNING_')) {
+    define('_PS_DISPLAY_COMPATIBILITY_WARNING_', true);
+}
+if (!defined('_PS_DISPLAY_ONLY_ERRORS_')) {
+    define('_PS_DISPLAY_ONLY_ERRORS_', false);
+}
 if (_PS_MODE_DEV_ === true) {
     $errorReportingLevel = E_ALL | E_STRICT;
-    /* @phpstan-ignore-next-line */
     if (_PS_DISPLAY_COMPATIBILITY_WARNING_ === false) {
         $errorReportingLevel = $errorReportingLevel & ~E_DEPRECATED & ~E_USER_DEPRECATED;
+    }
+    if (_PS_DISPLAY_ONLY_ERRORS_ !== false) {
+        $errorReportingLevel = $errorReportingLevel & ~E_WARNING & ~E_NOTICE;
     }
     @ini_set('display_errors', 'on');
     @error_reporting($errorReportingLevel);
     define('_PS_DEBUG_SQL_', true);
-} else { /* @phpstan-ignore-line */
+} else {
     @ini_set('display_errors', 'off');
     define('_PS_DEBUG_SQL_', false);
 }
@@ -49,6 +56,16 @@ if (!defined('_PS_DEBUG_PROFILING_')) {
 }
 if (!defined('_PS_MODE_DEMO_')) {
     define('_PS_MODE_DEMO_', false);
+}
+if (!defined('_PS_SMARTY_CACHING_TYPE_')) {
+    define('_PS_SMARTY_CACHING_TYPE_', 'filesystem');
+}
+if (!defined('_PS_ALLOW_MULTI_STATEMENTS_QUERIES_')) {
+    define('_PS_ALLOW_MULTI_STATEMENTS_QUERIES_', false);
+}
+
+if (!defined('_PS_DO_NOT_LOAD_CONFIGURATION_')) {
+    define('_PS_DO_NOT_LOAD_CONFIGURATION_', false);
 }
 
 $currentDir = dirname(__FILE__);
@@ -87,7 +104,6 @@ if ((defined('_PS_IN_TEST_') && _PS_IN_TEST_)
 ) {
     define('_PS_ENV_', 'test');
 } else {
-    /* @phpstan-ignore-next-line */
     define('_PS_ENV_', _PS_MODE_DEV_ ? 'dev': 'prod');
 }
 
@@ -127,10 +143,6 @@ if (!defined('_PS_GEOIP_CITY_FILE_')) {
 }
 
 define('_PS_VENDOR_DIR_', _PS_CORE_DIR_.'/vendor/');
-define('_PS_PEAR_XML_PARSER_PATH_', _PS_TOOL_DIR_.'pear_xml_parser/');
-define('_PS_SWIFT_DIR_', _PS_TOOL_DIR_.'swift/');
-define('_PS_TAASC_PATH_', _PS_TOOL_DIR_.'taasc/');
-define('_PS_TCPDF_PATH_', _PS_TOOL_DIR_.'tcpdf/');
 
 define('_PS_IMG_SOURCE_DIR_', _PS_ROOT_DIR_.'/img/');
 if (!defined('_PS_IMG_DIR_')) {

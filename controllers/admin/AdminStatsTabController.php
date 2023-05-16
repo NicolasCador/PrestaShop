@@ -174,10 +174,17 @@ abstract class AdminStatsTabControllerCore extends AdminController
 
     protected function getModules()
     {
-        return array_map(
-            function ($moduleArray) {return ['name' => $moduleArray['module']]; },
-            Hook::getHookModuleExecList('displayAdminStatsModules')
-        );
+        $moduleList = Hook::getHookModuleExecList('displayAdminStatsModules');
+        if (true === is_array($moduleList)) {
+            return array_map(
+                function ($moduleArray) {
+                    return ['name' => $moduleArray['module']];
+                },
+                $moduleList
+            );
+        }
+
+        return [];
     }
 
     public function displayStats()
@@ -196,7 +203,7 @@ abstract class AdminStatsTabControllerCore extends AdminController
             }
 
             if ($module_instance && $module_instance->active) {
-                $hook = Hook::exec('displayAdminStatsModules', null, $module_instance->id);
+                $hook = Hook::exec('displayAdminStatsModules', [], $module_instance->id);
             }
         }
 

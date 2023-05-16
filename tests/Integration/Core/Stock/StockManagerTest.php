@@ -48,7 +48,11 @@ class StockManagerTest extends TestCase
     /**
      * @var Container
      */
-    private $container;
+    private $testContainer;
+    /**
+     * @var Container
+     */
+    private $savedContainer;
     /**
      * @var PackItemsManager
      */
@@ -59,13 +63,20 @@ class StockManagerTest extends TestCase
         parent::setUp();
 
         $this->configuration = $this->createMock(ConfigurationInterface::class);
+        $this->savedContainer = ServiceLocator::getContainer();
 
-        $this->container = new Container();
-        $this->container->bind(
+        $this->testContainer = new Container();
+        $this->testContainer->bind(
             '\\PrestaShop\\PrestaShop\\Core\\ConfigurationInterface',
             $this->configuration
         );
-        ServiceLocator::setServiceContainerInstance($this->container);
+        ServiceLocator::setServiceContainerInstance($this->testContainer);
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        ServiceLocator::setServiceContainerInstance($this->savedContainer);
     }
 
     /**
@@ -83,8 +94,8 @@ class StockManagerTest extends TestCase
         foreach ($products as $product) {
             $packItemsManager->addProduct($pack, $product[0], $product[1], $product[2]);
         }
-        $this->container->bind('\\PrestaShop\\PrestaShop\\Adapter\\Product\\PackItemsManager', $packItemsManager);
-        $this->container->bind('\\PrestaShop\\PrestaShop\\Adapter\\StockManager', $packItemsManager);
+        $this->testContainer->bind('\\PrestaShop\\PrestaShop\\Adapter\\Product\\PackItemsManager', $packItemsManager);
+        $this->testContainer->bind('\\PrestaShop\\PrestaShop\\Adapter\\StockManager', $packItemsManager);
 
         $stockManager = new StockManager();
         $stockManager->updatePackQuantity($pack, $pack->stock_available, $delta);
@@ -176,8 +187,8 @@ class StockManagerTest extends TestCase
         foreach ($products as $product) {
             $this->packItemsManager->addProduct($pack, $product[0], $product[1], $product[2]);
         }
-        $this->container->bind('\\PrestaShop\\PrestaShop\\Adapter\\Product\\PackItemsManager', $this->packItemsManager);
-        $this->container->bind('\\PrestaShop\\PrestaShop\\Adapter\\StockManager', $this->packItemsManager);
+        $this->testContainer->bind('\\PrestaShop\\PrestaShop\\Adapter\\Product\\PackItemsManager', $this->packItemsManager);
+        $this->testContainer->bind('\\PrestaShop\\PrestaShop\\Adapter\\StockManager', $this->packItemsManager);
 
         $stockManager = new StockManager();
         // we will update first product quantity only, others will remain inchanged (excepting pack on needed cases)
@@ -274,8 +285,8 @@ class StockManagerTest extends TestCase
         foreach ($products as $product) {
             $this->packItemsManager->addProduct($pack, $product[0], $product[1], $product[2]);
         }
-        $this->container->bind('\\PrestaShop\\PrestaShop\\Adapter\\Product\\PackItemsManager', $this->packItemsManager);
-        $this->container->bind('\\PrestaShop\\PrestaShop\\Adapter\\StockManager', $this->packItemsManager);
+        $this->testContainer->bind('\\PrestaShop\\PrestaShop\\Adapter\\Product\\PackItemsManager', $this->packItemsManager);
+        $this->testContainer->bind('\\PrestaShop\\PrestaShop\\Adapter\\StockManager', $this->packItemsManager);
 
         $productToUpdate = ($product_to_update === 0) ? $pack : $products[$product_to_update - 1][0];
         $productAttributeToUpdate = ($product_to_update === 0) ? null : $products[$product_to_update - 1][1];
@@ -376,14 +387,11 @@ class StockManagerTest extends TestCase
 class FakeProduct4759 extends Product
 {
     private static $LAST_ID = 0;
-    public $id;
-    public $pack_stock_type;
     public $stock_available;
-    public $low_stock_alert;
 
     public function __construct($stock_available, int $pack_stock_type = PackStockType::STOCK_TYPE_PACK_ONLY)
     {
-        $this->id = ++static::$LAST_ID;
+        $this->id = ++self::$LAST_ID;
         $this->pack_stock_type = $pack_stock_type;
         $this->stock_available = new FakeStockAvailable4759($stock_available);
     }
@@ -455,13 +463,16 @@ class FakePackItemsManager4759 extends PackItemsManager
 
 class FakeStockAvailable4759 extends StockAvailable
 {
-    public $quantity = 0;
-
     public function __construct($quantity)
     {
         $this->quantity = $quantity;
     }
 
+    /**
+     * @param $null_values
+     *
+     * @return bool|int|string|void
+     */
     public function update($null_values = false)
     {
     }

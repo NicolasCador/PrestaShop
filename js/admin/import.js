@@ -26,9 +26,9 @@
 var importCancelRequest = false;
 var importContinueRequest = false;
 
-$(document).ready(function(){
+$(function(){
 
-	$('#saveImportMatchs').unbind('click').click(function(){
+	$('#saveImportMatchs').off('click').on('click', function(){
 
 	var newImportMatchs = $('#newImportMatchs').val();
 	if (newImportMatchs == '')
@@ -60,7 +60,7 @@ $(document).ready(function(){
 	}
 	});
 
-	$('#loadImportMatchs').unbind('click').click(function(){
+	$('#loadImportMatchs').off('click').on('click', function(){
 
 		var idToLoad = $('select#valueImportMatchs option:selected').attr('id');
 		$.ajax({
@@ -85,7 +85,7 @@ $(document).ready(function(){
 		   });
 	});
 
-	$('#deleteImportMatchs').unbind('click').click(function(){
+	$('#deleteImportMatchs').off('click').on('click', function(){
 
 		var idToDelete = $('select#valueImportMatchs option:selected').attr('id');
 		$.ajax({
@@ -109,7 +109,7 @@ $(document).ready(function(){
 
 	});
 
-	$('#import_stop_button').unbind('click').click(function(){
+	$('#import_stop_button').off('click').on('click', function(){
 		if (importContinueRequest) {
 			$('#importProgress').modal('hide');
 			importContinueRequest = false;
@@ -124,7 +124,7 @@ $(document).ready(function(){
 		}
 	});
 
-	$('#import_continue_button').unbind('click').click(function(){
+	$('#import_continue_button').off('click').on('click', function(){
 		$('#import_continue_button').hide();
 		importContinueRequest = false;
 		$('#import_progress_div').show();
@@ -145,8 +145,8 @@ function validateImportation(mandatory)
 	toggle(getE('required_column'), false);
     for (i = 0; elem = getE('type_value['+i+']'); i++)
     {
-		if (seted_value[elem.options[elem.selectedIndex].value])
-		{
+    if ($.inArray(elem.options[elem.selectedIndex].value, seted_value) !== -1)
+    {
 			scroll(0,0);
 			toggle(getE('error_duplicate_type'), true);
 			return false;
@@ -361,8 +361,13 @@ function updateProgression(currentPosition, total, nextPosition, finish, moreSte
 			$('#import_progressbar_next').width((progressionNext-progressionDone)+'%');
 		} else {
 			$('#import_progressbar_next').width('0%');
-			$('#import_progressbar_done').width((100-progressionDone)+'%');
-			$('#import_progressbar_done2').width(progressionDone+'%');
+      if (progressionDone === 100) {
+        $('#import_progressbar_done').width('100%');
+        $('#import_progressbar_done2').width('0%');
+      } else {
+        $('#import_progressbar_done').width((100-progressionDone)+'%');
+        $('#import_progressbar_done2').width(progressionDone+'%');
+      }
 			if (moreStepLabel) $('#import_progressbar_done2 span').html(moreStepLabel);
 		}
 	}

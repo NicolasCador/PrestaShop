@@ -104,8 +104,12 @@ class AddressCore extends ObjectModel
 
     /** @var array Zone IDs cache */
     protected static $_idZones = [];
+
     /** @var array Country IDs cache */
     protected static $_idCountries = [];
+
+    /** @var array<int, bool> Store if an adress ID exists */
+    protected static $addressExists = [];
 
     /**
      * @see ObjectModel::$definition
@@ -158,7 +162,8 @@ class AddressCore extends ObjectModel
     /**
      * Build an Address.
      *
-     * @param int $id_address Existing Address ID in order to load object (optional)
+     * @param int|null $id_address Existing Address ID in order to load object (optional)
+     * @param int|null $id_lang Language ID (optional). Configuration::PS_LANG_DEFAULT will be used if null
      */
     public function __construct($id_address = null, $id_lang = null)
     {
@@ -177,6 +182,7 @@ class AddressCore extends ObjectModel
     {
         static::$_idZones = [];
         static::$_idCountries = [];
+        static::$addressExists = [];
     }
 
     /**
@@ -191,6 +197,9 @@ class AddressCore extends ObjectModel
         if (Validate::isUnsignedId($this->id_customer)) {
             Customer::resetAddressCache($this->id_customer, $this->id);
         }
+
+        // Update the cache
+        static::$addressExists[$this->id] = true;
 
         return true;
     }
@@ -207,6 +216,9 @@ class AddressCore extends ObjectModel
         if (isset(self::$_idZones[$this->id])) {
             unset(self::$_idZones[$this->id]);
         }
+
+        // Update the cache
+        static::$addressExists[$this->id] = true;
 
         if (Validate::isUnsignedId($this->id_customer)) {
             Customer::resetAddressCache($this->id_customer, $this->id);
@@ -231,6 +243,11 @@ class AddressCore extends ObjectModel
 
         if (!$this->isUsed()) {
             $this->deleteCartAddress();
+
+            // Update the cache
+            if (isset(static::$addressExists[$this->id])) {
+                static::$addressExists[$this->id] = false;
+            }
 
             return parent::delete();
         } else {
@@ -364,7 +381,7 @@ class AddressCore extends ObjectModel
 
             return $this->trans(
                 'Property %s is empty.',
-                [get_class($this) . '->' . $field],
+                [get_class($this) . '->' . htmlspecialchars($field)],
                 'Admin.Notifications.Error'
             );
         }
@@ -437,17 +454,28 @@ class AddressCore extends ObjectModel
      * Specify if an address is already in base.
      *
      * @param int $id_address Address id
+     * @param bool $useCache Use Cache for optimizing queries
      *
      * @return bool The address exists
      */
-    public static function addressExists($id_address)
+    public static function addressExists($id_address, bool $useCache = false)
     {
-        return (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue(
+        if ((int) $id_address <= 0) {
+            return false;
+        }
+
+        if ($useCache && isset(static::$addressExists[$id_address])) {
+            return static::$addressExists[$id_address];
+        }
+
+        static::$addressExists[$id_address] = (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue(
             'SELECT `id_address`
             FROM ' . _DB_PREFIX_ . 'address a
             WHERE a.`id_address` = ' . (int) $id_address,
             false
         );
+
+        return static::$addressExists[$id_address];
     }
 
     /**
@@ -518,7 +546,7 @@ class AddressCore extends ObjectModel
             $context_hash = md5((int) $context->customer->geoloc_id_country . '-' . (int) $context->customer->id_state . '-' .
                                 $context->customer->postcode);
         } else {
-            $context_hash = md5((int) $context->country->id);
+            $context_hash = md5((string) $context->country->id);
         }
 
         $cache_id = 'Address::initialize_' . $context_hash;

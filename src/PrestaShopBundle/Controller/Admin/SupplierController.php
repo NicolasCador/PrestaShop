@@ -26,11 +26,17 @@
 
 namespace PrestaShopBundle\Controller\Admin;
 
+use PrestaShop\PrestaShop\Adapter\Product\AdminProductWrapper;
+use PrestaShop\PrestaShop\Adapter\Tools;
+use PrestaShopBundle\Form\Admin\Product\ProductSupplierCombination;
 use PrestaShopBundle\Model\Product\AdminModelAdapter as ProductAdminModelAdapter;
+use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major.
+ *
  * Admin controller for suppliers page.
  */
 class SupplierController extends FrameworkBundleAdminController
@@ -45,7 +51,7 @@ class SupplierController extends FrameworkBundleAdminController
      */
     public function refreshProductSupplierCombinationFormAction($idProduct, $supplierIds)
     {
-        $adminProductWrapper = $this->get('prestashop.adapter.admin.wrapper.product');
+        $adminProductWrapper = $this->get(AdminProductWrapper::class);
         $productAdapter = $this->get('prestashop.adapter.data_provider.product');
         $response = new Response();
 
@@ -53,7 +59,7 @@ class SupplierController extends FrameworkBundleAdminController
         $product = $productAdapter->getProduct((int) $idProduct);
 
         $suppliers = explode('-', $supplierIds);
-        if ($supplierIds == 0 || count($suppliers) == 0) {
+        if ($supplierIds == 0) {
             return $response;
         }
 
@@ -73,8 +79,8 @@ class SupplierController extends FrameworkBundleAdminController
 
         $modelMapper = new ProductAdminModelAdapter(
             $this->get('prestashop.adapter.legacy.context'),
-            $this->get('prestashop.adapter.admin.wrapper.product'),
-            $this->get('prestashop.adapter.tools'),
+            $this->get(AdminProductWrapper::class),
+            $this->get(Tools::class),
             $this->get('prestashop.adapter.data_provider.product'),
             $this->get('prestashop.adapter.data_provider.supplier'),
             $this->get('prestashop.adapter.data_provider.warehouse'),
@@ -82,6 +88,7 @@ class SupplierController extends FrameworkBundleAdminController
             $this->get('prestashop.adapter.data_provider.pack'),
             $this->get('prestashop.adapter.shop.context'),
             $this->get('prestashop.adapter.data_provider.tax'),
+            $this->get('prestashop.adapter.legacy.configuration'),
             $this->get('router')
         );
         $allFormData = $modelMapper->getFormData($product);
@@ -94,10 +101,11 @@ class SupplierController extends FrameworkBundleAdminController
                 continue;
             }
 
-            $simpleSubForm->add('supplier_combination_' . $idSupplier, 'Symfony\Component\Form\Extension\Core\Type\CollectionType', [
-                'entry_type' => 'PrestaShopBundle\Form\Admin\Product\ProductSupplierCombination',
+            $simpleSubForm->add('supplier_combination_' . $idSupplier, CollectionType::class, [
+                'entry_type' => ProductSupplierCombination::class,
                 'entry_options' => [
                     'id_supplier' => $idSupplier,
+                    'id_currency' => $this->getContext()->currency->id,
                 ],
                 'prototype' => true,
                 'allow_add' => true,

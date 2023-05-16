@@ -136,6 +136,7 @@ class ZoneController extends FrameworkBundleAdminController
             'zoneForm' => $zoneForm->createView(),
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'enableSidebar' => true,
+            'layoutTitle' => $this->trans('New zone', 'Admin.Navigation.Menu'),
         ]);
     }
 
@@ -189,6 +190,13 @@ class ZoneController extends FrameworkBundleAdminController
             'zoneForm' => $zoneForm->createView(),
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'enableSidebar' => true,
+            'layoutTitle' => $this->trans(
+                'Editing zone %name%',
+                'Admin.Navigation.Menu',
+                [
+                    '%name%' => $editableZone->getName(),
+                ]
+            ),
         ]);
     }
 
@@ -272,7 +280,7 @@ class ZoneController extends FrameworkBundleAdminController
 
             $this->addFlash(
                 'success',
-                $this->trans('The selection has been successfully deleted.', 'Admin.Notifications.Success')
+                $this->trans('The selection has been successfully deleted', 'Admin.Notifications.Success')
             );
         } catch (ZoneException $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));

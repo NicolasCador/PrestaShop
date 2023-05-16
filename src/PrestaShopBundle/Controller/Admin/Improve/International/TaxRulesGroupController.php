@@ -36,9 +36,13 @@ use PrestaShop\PrestaShop\Core\Domain\TaxRulesGroup\Exception\CannotBulkUpdateTa
 use PrestaShop\PrestaShop\Core\Domain\TaxRulesGroup\Exception\CannotDeleteTaxRulesGroupException;
 use PrestaShop\PrestaShop\Core\Domain\TaxRulesGroup\Exception\CannotUpdateTaxRulesGroupException;
 use PrestaShop\PrestaShop\Core\Domain\TaxRulesGroup\Exception\TaxRulesGroupConstraintException;
+use PrestaShop\PrestaShop\Core\Domain\TaxRulesGroup\Exception\TaxRulesGroupException;
 use PrestaShop\PrestaShop\Core\Domain\TaxRulesGroup\Exception\TaxRulesGroupNotFoundException;
 use PrestaShop\PrestaShop\Core\Domain\TaxRulesGroup\Query\GetTaxRulesGroupForEditing;
 use PrestaShop\PrestaShop\Core\Domain\TaxRulesGroup\QueryResult\EditableTaxRulesGroup;
+use PrestaShop\PrestaShop\Core\Form\IdentifiableObject\Builder\FormBuilderInterface;
+use PrestaShop\PrestaShop\Core\Form\IdentifiableObject\Handler\FormHandlerInterface;
+use PrestaShop\PrestaShop\Core\Search\Filters\TaxRuleFilters;
 use PrestaShop\PrestaShop\Core\Search\Filters\TaxRulesGroupFilters;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use PrestaShopBundle\Security\Annotation\AdminSecurity;
@@ -86,7 +90,28 @@ class TaxRulesGroupController extends FrameworkBundleAdminController
      */
     public function createAction(Request $request): Response
     {
-        return $this->redirect($this->getAdminLink('AdminTaxRulesGroup', []));
+        $taxRulesGroupForm = $this->getFormBuilder()->getForm();
+        $taxRulesGroupForm->handleRequest($request);
+
+        try {
+            $handlerResult = $this->getFormHandler()->handle($taxRulesGroupForm);
+            if ($handlerResult->isSubmitted() && $handlerResult->isValid()) {
+                $this->addFlash('success', $this->trans('Successful creation', 'Admin.Notifications.Success'));
+
+                return $this->redirectToRoute('admin_tax_rules_groups_edit', [
+                    'taxRulesGroupId' => $handlerResult->getIdentifiableObjectId(),
+                ]);
+            }
+        } catch (Exception $e) {
+            $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages()));
+        }
+
+        return $this->render('@PrestaShop/Admin/Improve/International/TaxRulesGroup/create.html.twig', [
+            'enableSidebar' => true,
+            'taxRulesGroupForm' => $taxRulesGroupForm->createView(),
+            'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
+            'layoutTitle' => $this->trans('New tax rule', 'Admin.Navigation.Menu'),
+        ]);
     }
 
     /**
@@ -99,12 +124,44 @@ class TaxRulesGroupController extends FrameworkBundleAdminController
      *
      * @param Request $request
      * @param int $taxRulesGroupId
+     * @param TaxRuleFilters $filters
      *
      * @return Response
      */
-    public function editAction(Request $request, int $taxRulesGroupId): Response
+    public function editAction(Request $request, int $taxRulesGroupId, TaxRuleFilters $filters): Response
     {
-        return $this->redirect($this->getAdminLink('AdminTaxRulesGroup', []));
+        $taxRulesGroupForm = null;
+
+        try {
+            $taxRulesGroupForm = $this->getFormBuilder()->getFormFor((int) $taxRulesGroupId);
+            $taxRulesGroupForm->handleRequest($request);
+            $result = $this->getFormHandler()->handleFor((int) $taxRulesGroupId, $taxRulesGroupForm);
+            if ($result->isSubmitted() && $result->isValid()) {
+                $this->addFlash('success', $this->trans('Update successful', 'Admin.Notifications.Success'));
+
+                return $this->redirectToRoute('admin_tax_rules_groups_edit', [
+                    'taxRulesGroupId' => $taxRulesGroupId,
+                ]);
+            }
+        } catch (TaxRulesGroupException $e) {
+            $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages()));
+
+            return $this->redirectToRoute('admin_tax_rules_groups_index');
+        } catch (Exception $e) {
+            $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages()));
+        }
+
+        $filters->addFilter(['taxRulesGroupId' => $taxRulesGroupId]);
+        $taxRuleGridFactory = $this->get('prestashop.core.grid.factory.tax_rule');
+        $taxRuleGrid = $taxRuleGridFactory->getGrid($filters);
+
+        return $this->render('@PrestaShop/Admin/Improve/International/TaxRulesGroup/edit.html.twig', [
+            'enableSidebar' => true,
+            'layoutTitle' => $this->trans('Editing tax rule %value%', 'Admin.Navigation.Menu', ['%value%' => $taxRulesGroupForm->getData()['name']]),
+            'taxRulesGroupForm' => $taxRulesGroupForm->createView(),
+            'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
+            'taxRuleGrid' => $this->presentGrid($taxRuleGrid),
+        ]);
     }
 
     /**
@@ -122,10 +179,10 @@ class TaxRulesGroupController extends FrameworkBundleAdminController
     public function deleteAction(int $taxRulesGroupId): RedirectResponse
     {
         try {
-            $this->getCommandBus()->handle(new DeleteTaxRulesGroupCommand((int) $taxRulesGroupId));
+            $this->getCommandBus()->handle(new DeleteTaxRulesGroupCommand($taxRulesGroupId));
             $this->addFlash(
                 'success',
-                $this->trans('Successful deletion.', 'Admin.Notifications.Success')
+                $this->trans('Successful deletion', 'Admin.Notifications.Success')
             );
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages()));
@@ -151,11 +208,11 @@ class TaxRulesGroupController extends FrameworkBundleAdminController
         try {
             /** @var EditableTaxRulesGroup $editableTaxRulesGroup */
             $editableTaxRulesGroup = $this->getQueryBus()->handle(
-                new GetTaxRulesGroupForEditing((int) $taxRulesGroupId)
+                new GetTaxRulesGroupForEditing($taxRulesGroupId)
             );
 
             $this->getCommandBus()->handle(
-                new SetTaxRulesGroupStatusCommand((int) $taxRulesGroupId, !$editableTaxRulesGroup->isActive())
+                new SetTaxRulesGroupStatusCommand($taxRulesGroupId, !$editableTaxRulesGroup->isActive())
             );
 
             $this->addFlash(
@@ -247,7 +304,7 @@ class TaxRulesGroupController extends FrameworkBundleAdminController
             $this->getCommandBus()->handle(new BulkDeleteTaxRulesGroupCommand($taxRulesGroupIds));
             $this->addFlash(
                 'success',
-                $this->trans('Successful deletion.', 'Admin.Notifications.Success')
+                $this->trans('Successful deletion', 'Admin.Notifications.Success')
             );
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
@@ -269,11 +326,7 @@ class TaxRulesGroupController extends FrameworkBundleAdminController
             return [];
         }
 
-        foreach ($taxRulesGroupIds as $i => $taxRulesGroupId) {
-            $taxRulesGroupIds[$i] = (int) $taxRulesGroupId;
-        }
-
-        return $taxRulesGroupIds;
+        return array_map('intval', $taxRulesGroupIds);
     }
 
     /**
@@ -285,7 +338,7 @@ class TaxRulesGroupController extends FrameworkBundleAdminController
 
         $toolbarButtons['add'] = [
             'href' => $this->generateUrl('admin_tax_rules_groups_create'),
-            'desc' => $this->trans('Add new tax rules group', 'Admin.International.Feature'),
+            'desc' => $this->trans('Add new tax rule', 'Admin.International.Feature'),
             'icon' => 'add_circle_outline',
         ];
 
@@ -339,5 +392,21 @@ class TaxRulesGroupController extends FrameworkBundleAdminController
                 ),
             ],
         ];
+    }
+
+    /**
+     * @return FormHandlerInterface
+     */
+    protected function getFormHandler(): FormHandlerInterface
+    {
+        return $this->get('prestashop.core.form.identifiable_object.handler.tax_rules_group_form_handler');
+    }
+
+    /**
+     * @return FormBuilderInterface
+     */
+    protected function getFormBuilder(): FormBuilderInterface
+    {
+        return $this->get('prestashop.core.form.identifiable_object.builder.tax_rules_group_form_builder');
     }
 }

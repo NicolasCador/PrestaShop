@@ -53,7 +53,7 @@ class CustomerPreferencesController extends FrameworkBundleAdminController
         $form = $this->get('prestashop.admin.customer_preferences.form_handler')->getForm();
 
         return $this->render('@PrestaShop/Admin/Configure/ShopParameters/customer_preferences.html.twig', [
-            'layoutTitle' => $this->trans('Customers', 'Admin.Navigation.Menu'),
+            'layoutTitle' => $this->trans('Customer settings', 'Admin.Navigation.Menu'),
             'enableSidebar' => true,
             'help_link' => $this->generateSidebarLink($legacyController),
             'generalForm' => $form->createView(),
@@ -90,6 +90,8 @@ class CustomerPreferencesController extends FrameworkBundleAdminController
             }
 
             $this->addFlash('success', $this->trans('Update successful', 'Admin.Notifications.Success'));
+
+            return $this->redirectToRoute('admin_customer_preferences');
         }
 
         $legacyController = $request->attributes->get('_legacy_controller');

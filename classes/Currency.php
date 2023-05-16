@@ -204,7 +204,7 @@ class CurrencyCore extends ObjectModel
             'name' => [
                 'getter' => 'getName',
                 'modifier' => [
-                    'http_method' => WebserviceRequest::HTTP_POST | WebserviceRequest::HTTP_PUT,
+                    'http_method' => WebserviceRequest::HTTP_POST | WebserviceRequest::HTTP_PUT | WebserviceRequest::HTTP_PATCH,
                     'modifier' => 'setNameForWebservice',
                 ],
             ],
@@ -213,7 +213,7 @@ class CurrencyCore extends ObjectModel
             ],
             'iso_code' => [
                 'modifier' => [
-                    'http_method' => WebserviceRequest::HTTP_POST | WebserviceRequest::HTTP_PUT,
+                    'http_method' => WebserviceRequest::HTTP_POST | WebserviceRequest::HTTP_PUT | WebserviceRequest::HTTP_PATCH,
                     'modifier' => 'setIsoCodeForWebService',
                 ],
             ],
@@ -345,7 +345,7 @@ class CurrencyCore extends ObjectModel
         /** @var Configuration $configuration */
         $configuration = $container->get('prestashop.adapter.legacy.configuration');
         $languages = Language::getIDs();
-        $defaultLanguage = new Language($configuration->get('PS_LANG_DEFAULT'));
+        $defaultLanguage = new Language((int) $configuration->get('PS_LANG_DEFAULT'));
         $locale = $localeCldr->getLocale($defaultLanguage->getLocale());
         $currency = $locale->getCurrency($this->iso_code);
         if (!empty($currency)) {
@@ -471,7 +471,7 @@ class CurrencyCore extends ObjectModel
      */
     public function delete()
     {
-        if ($this->id == Configuration::get('PS_CURRENCY_DEFAULT')) {
+        if ($this->id == Currency::getDefaultCurrencyId()) {
             $result = Db::getInstance()->getRow('SELECT `id_currency` FROM ' . _DB_PREFIX_ . 'currency WHERE `id_currency` != ' . (int) $this->id . ' AND `deleted` = 0');
             if (empty($result['id_currency'])) {
                 return false;
@@ -915,7 +915,7 @@ class CurrencyCore extends ObjectModel
      */
     public static function getIsoCodeById(int $id, bool $forceRefreshCache = false)
     {
-        $cacheId = 'Currency::getIsoCodeById' . pSQL($id);
+        $cacheId = 'Currency::getIsoCodeById' . pSQL((string) $id);
         if ($forceRefreshCache || !Cache::isStored($cacheId)) {
             $resultIsoCode = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue('SELECT `iso_code` FROM ' . _DB_PREFIX_ . 'currency WHERE `id_currency` = ' . (int) $id);
             Cache::store($cacheId, $resultIsoCode);
@@ -936,10 +936,10 @@ class CurrencyCore extends ObjectModel
      */
     public static function getIdByNumericIsoCode($numericIsoCode, $idShop = 0)
     {
-        $cacheId = 'Currency::getIdByNumericIsoCode_' . pSQL($numericIsoCode) . '-' . (int) $idShop;
+        $cacheId = 'Currency::getIdByNumericIsoCode_' . pSQL((string) $numericIsoCode) . '-' . (int) $idShop;
         if (!Cache::isStored($cacheId)) {
             $query = Currency::getIdByQuery($idShop);
-            $query->where('numeric_iso_code = \'' . pSQL($numericIsoCode) . '\'');
+            $query->where('numeric_iso_code = \'' . pSQL((string) $numericIsoCode) . '\'');
 
             $result = (int) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query->build());
             Cache::store($cacheId, $result);
@@ -1030,12 +1030,22 @@ class CurrencyCore extends ObjectModel
      */
     public static function getDefaultCurrency()
     {
-        $idCurrency = (int) Configuration::get('PS_CURRENCY_DEFAULT');
+        $idCurrency = Currency::getDefaultCurrencyId();
         if ($idCurrency == 0) {
             return false;
         }
 
         return new Currency($idCurrency);
+    }
+
+    /**
+     * Get default currency Id.
+     *
+     * @return int
+     */
+    public static function getDefaultCurrencyId(): int
+    {
+        return (int) Configuration::get('PS_CURRENCY_DEFAULT');
     }
 
     /**
@@ -1088,24 +1098,10 @@ class CurrencyCore extends ObjectModel
      * Get conversion rate.
      *
      * @return int|string
-     *
-     * @deprecated 1.7.2.0, use Currency::getConversionRate() instead
-     */
-    public function getConversationRate()
-    {
-        Tools::displayAsDeprecated('Use Currency::getConversionRate() instead');
-
-        return $this->getConversionRate();
-    }
-
-    /**
-     * Get conversion rate.
-     *
-     * @return int|string
      */
     public function getConversionRate()
     {
-        return ($this->id != (int) Configuration::get('PS_CURRENCY_DEFAULT')) ? $this->conversion_rate : 1;
+        return ($this->id != static::getDefaultCurrencyId()) ? $this->conversion_rate : 1;
     }
 
     /**
@@ -1126,7 +1122,7 @@ class CurrencyCore extends ObjectModel
             self::$countActiveCurrencies[$idShop] = Db::getInstance()->getValue('
 				SELECT COUNT(DISTINCT c.id_currency) FROM `' . _DB_PREFIX_ . 'currency` c
 				LEFT JOIN ' . _DB_PREFIX_ . 'currency_shop cs ON (cs.id_currency = c.id_currency AND cs.id_shop = ' . (int) $idShop . ')
-				WHERE c.`active` = 1
+				WHERE c.`active` = 1 AND c.`deleted` = 0
 			');
         }
 

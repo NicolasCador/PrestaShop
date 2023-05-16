@@ -98,7 +98,7 @@ trans('Positions', 'Admin.Navigation.Menu');
 trans('Discounts', 'Admin.Navigation.Menu');
 trans('Product Settings', 'Admin.Navigation.Menu');
 trans('Products', 'Admin.Navigation.Menu');
-trans('Profiles', 'Admin.Navigation.Menu');
+trans('Roles', 'Admin.Navigation.Menu');
 trans('Quick Access', 'Admin.Navigation.Menu');
 trans('Referrers', 'Admin.Navigation.Menu');
 trans('Search', 'Admin.Navigation.Menu');
@@ -130,10 +130,12 @@ trans('Traffic & SEO', 'Admin.Navigation.Menu');
 trans('Translations', 'Admin.Navigation.Menu');
 trans('Warehouses', 'Admin.Navigation.Menu');
 trans('Webservice', 'Admin.Navigation.Menu');
+trans('Authorization Server', 'Admin.Navigation.Menu');
 trans('Zones', 'Admin.Navigation.Menu');
 trans('Modules Catalog', 'Admin.Navigation.Menu');
 trans('Module Manager', 'Admin.Navigation.Menu');
-trans('Experimental Features', 'Admin.Navigation.Menu');
+trans('New & Experimental Features', 'Admin.Navigation.Menu');
+trans('Security', 'Admin.Navigation.Menu');
 
 // subtab
 trans('Modules', 'Admin.Navigation.Menu');

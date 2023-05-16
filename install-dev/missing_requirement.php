@@ -1,3 +1,30 @@
+<?php
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -105,17 +132,11 @@
           PrestaShop installation requires the <b>Zip PHP extension</b> to be enabled.
       </li>
     <?php endif; ?>
-    <?php if (!defined('PHP_VERSION_ID') || PHP_VERSION_ID < _PS_INSTALL_MINIMUM_PHP_VERSION_ID_): ?>
-      <li>
-          Your server is running PHP <?php echo PHP_VERSION ?>, but PrestaShop requires PHP <?php echo _PS_INSTALL_MINIMUM_PHP_VERSION_ ?> or newer.
-          <i>To install PrestaShop <?php echo _PS_INSTALL_VERSION_ ?> you need to update your server's PHP version.</i>
-      </li>
-    <?php endif; ?>
-    <?php if (PHP_VERSION_ID > _PS_INSTALL_MAXIMUM_PHP_VERSION_ID_): ?>
-      <li>
-          Your server is running PHP <?php echo PHP_VERSION ?>, but PrestaShop requires PHP <?php echo _PS_INSTALL_MAXIMUM_PHP_VERSION_ ?> or lower.
-          <i>To install PrestaShop <?php echo _PS_INSTALL_VERSION_ ?> you need to downgrade your server's PHP version.</i>
-      </li>
+    <?php if ((!defined('PHP_VERSION_ID') || PHP_VERSION_ID < _PS_INSTALL_MINIMUM_PHP_VERSION_ID_) || (PHP_VERSION_ID > _PS_INSTALL_MAXIMUM_PHP_VERSION_ID_)): ?>
+        <li>
+            Your server is running PHP <?php echo PHP_VERSION ?>, but PrestaShop requires a PHP version between PHP <?php echo _PS_INSTALL_MINIMUM_PHP_VERSION_ ?> and PHP <?php echo _PS_INSTALL_MAXIMUM_PHP_VERSION_ ?>.
+            <i>To install PrestaShop <?php echo _PS_INSTALL_VERSION_ ?> you need to change your server's PHP version.</i>
+        </li>
     <?php endif; ?>
         <?php if (!is_writable(__DIR__.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'var'.DIRECTORY_SEPARATOR.'cache')): ?>
       <li>

@@ -28,13 +28,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Core\Form\IdentifiableObject\CommandBuilder\Product;
 
-use PHPUnit\Framework\TestCase;
 use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\ProductId;
 
 /**
  * Base class to test a product command builder
  */
-abstract class AbstractProductCommandBuilderTest extends TestCase
+abstract class AbstractProductCommandBuilderTest extends AbstractMultiShopCommandsBuilderTest
 {
     /**
      * @var ProductId

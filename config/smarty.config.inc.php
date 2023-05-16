@@ -27,7 +27,7 @@
 global $smarty;
 if (Configuration::get('PS_SMARTY_LOCAL')) {
     $smarty = new SmartyCustom();
-} elseif (_PS_MODE_DEV_ && !defined('_PS_ADMIN_DIR_')) { /* @phpstan-ignore-line */
+} elseif (_PS_MODE_DEV_ && !defined('_PS_ADMIN_DIR_')) {
     $smarty = new SmartyDev();
 } else {
     $smarty = new Smarty();
@@ -39,7 +39,8 @@ $smarty->setCacheDir(_PS_CACHE_DIR_.'smarty/cache');
 $smarty->use_sub_dirs = true;
 $smarty->caching = Smarty::CACHING_OFF;
 
-if (Configuration::get('PS_SMARTY_CACHING_TYPE') == 'mysql') {
+/* @phpstan-ignore-next-line */
+if (_PS_SMARTY_CACHING_TYPE_ == 'mysql') {
     include _PS_CLASS_DIR_.'Smarty/SmartyCacheResourceMysql.php';
     $smarty->caching_type = 'mysql';
 }
@@ -92,6 +93,26 @@ smartyRegisterFunction($smarty, 'modifier', 'cleanHtml', 'smartyCleanHtml');
 smartyRegisterFunction($smarty, 'modifier', 'classname', 'smartyClassname');
 smartyRegisterFunction($smarty, 'modifier', 'classnames', 'smartyClassnames');
 smartyRegisterFunction($smarty, 'function', 'url', array('Link', 'getUrlSmarty'));
+
+// Native PHP Functions
+smartyRegisterFunction($smarty, 'modifier', 'addcslashes', 'addcslashes');
+smartyRegisterFunction($smarty, 'modifier', 'addslashes', 'addslashes');
+smartyRegisterFunction($smarty, 'modifier', 'date','date');
+smartyRegisterFunction($smarty, 'modifier', 'end','end');
+smartyRegisterFunction($smarty, 'modifier', 'floatval', 'floatval');
+smartyRegisterFunction($smarty, 'modifier', 'htmlentities', 'htmlentities');
+smartyRegisterFunction($smarty, 'modifier', 'intval', 'intval');
+smartyRegisterFunction($smarty, 'modifier', 'json_decode', 'json_decode');
+smartyRegisterFunction($smarty, 'modifier', 'json_encode', 'json_encode');
+smartyRegisterFunction($smarty, 'modifier', 'mt_rand','mt_rand');
+smartyRegisterFunction($smarty, 'modifier', 'rand','rand');
+smartyRegisterFunction($smarty, 'modifier', 'strtolower','strtolower');
+smartyRegisterFunction($smarty, 'modifier', 'str_replace','str_replace');
+smartyRegisterFunction($smarty, 'modifier', 'strval','strval');
+smartyRegisterFunction($smarty, 'modifier', 'trim', 'trim');
+smartyRegisterFunction($smarty, 'modifier', 'ucfirst', 'ucfirst');
+smartyRegisterFunction($smarty, 'modifier', 'urlencode','urlencode');
+smartyRegisterFunction($smarty, 'modifier', 'htmlspecialchars','htmlspecialchars');
 
 function smarty_modifier_htmlentitiesUTF8($string)
 {
@@ -174,7 +195,7 @@ function smartyCleanHtml($data)
     }
 }
 
-function smartyClassname($classname)
+function smartyClassname(string $classname)
 {
     $classname = Tools::replaceAccentedChars(strtolower($classname));
     $classname = preg_replace(['/[^A-Za-z0-9-_]/', '/-{3,}/', '/-+$/'], ['-', '-', ''] , $classname);

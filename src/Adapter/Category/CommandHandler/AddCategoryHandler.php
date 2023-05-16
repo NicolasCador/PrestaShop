@@ -28,11 +28,13 @@ namespace PrestaShop\PrestaShop\Adapter\Category\CommandHandler;
 
 use Category;
 use PrestaShop\PrestaShop\Adapter\Domain\AbstractObjectModelHandler;
+use PrestaShop\PrestaShop\Adapter\Image\Uploader\CategoryImageUploader;
 use PrestaShop\PrestaShop\Core\Domain\Category\Command\AddCategoryCommand;
 use PrestaShop\PrestaShop\Core\Domain\Category\CommandHandler\AddCategoryHandlerInterface;
 use PrestaShop\PrestaShop\Core\Domain\Category\Exception\CannotAddCategoryException;
-use PrestaShop\PrestaShop\Core\Domain\Category\Exception\CategoryConstraintException;
+use PrestaShop\PrestaShop\Core\Domain\Category\Exception\MenuThumbnailsLimitException;
 use PrestaShop\PrestaShop\Core\Domain\Category\ValueObject\CategoryId;
+use PrestaShop\PrestaShop\Core\Domain\Category\ValueObject\MenuThumbnailId;
 
 /**
  * Adds new category using legacy object model.
@@ -42,6 +44,16 @@ use PrestaShop\PrestaShop\Core\Domain\Category\ValueObject\CategoryId;
 final class AddCategoryHandler extends AbstractObjectModelHandler implements AddCategoryHandlerInterface
 {
     /**
+     * @var CategoryImageUploader
+     */
+    private $categoryImageUploader;
+
+    public function __construct(CategoryImageUploader $categoryImageUploader)
+    {
+        $this->categoryImageUploader = $categoryImageUploader;
+    }
+
+    /**
      * {@inheritdoc}
      *
      * @param AddCategoryCommand $command
@@ -50,9 +62,21 @@ final class AddCategoryHandler extends AbstractObjectModelHandler implements Add
      */
     public function handle(AddCategoryCommand $command)
     {
+        if (count($command->getMenuThumbnailImages()) > count(MenuThumbnailId::ALLOWED_ID_VALUES)) {
+            throw new MenuThumbnailsLimitException('Maximum number of menu thumbnails exceeded for new category');
+        }
         $category = $this->createCategoryFromCommand($command);
 
-        return new CategoryId((int) $category->id);
+        $categoryId = new CategoryId((int) $category->id);
+
+        $this->categoryImageUploader->uploadImages(
+            $categoryId,
+            $command->getCoverImage(),
+            $command->getThumbnailImage(),
+            $command->getMenuThumbnailImages()
+        );
+
+        return $categoryId;
     }
 
     /**
@@ -61,7 +85,9 @@ final class AddCategoryHandler extends AbstractObjectModelHandler implements Add
      * @return Category
      *
      * @throws CannotAddCategoryException
-     * @throws CategoryConstraintException
+     * @throws MenuThumbnailsLimitException
+     * @throws \PrestaShopDatabaseException
+     * @throws \PrestaShopException
      */
     private function createCategoryFromCommand(AddCategoryCommand $command)
     {
@@ -81,6 +107,10 @@ final class AddCategoryHandler extends AbstractObjectModelHandler implements Add
             $category->description = $command->getLocalizedDescriptions();
         }
 
+        if (null !== $command->getLocalizedAdditionalDescriptions()) {
+            $category->additional_description = $command->getLocalizedAdditionalDescriptions();
+        }
+
         if (null !== $command->getLocalizedMetaTitles()) {
             $category->meta_title = $command->getLocalizedMetaTitles();
         }
@@ -98,11 +128,11 @@ final class AddCategoryHandler extends AbstractObjectModelHandler implements Add
         }
 
         if (false === $category->validateFields(false)) {
-            throw new CannotAddCategoryException('Invalid category data');
+            throw new CannotAddCategoryException('Invalid data for creating category.');
         }
 
         if (false === $category->validateFieldsLang(false)) {
-            throw new CannotAddCategoryException('Invalid category data');
+            throw new CannotAddCategoryException('Invalid language data for creating category.');
         }
 
         if (false === $category->add()) {

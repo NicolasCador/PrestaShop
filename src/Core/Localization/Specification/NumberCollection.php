@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -31,6 +30,7 @@ use ArrayIterator;
 use Countable;
 use IteratorAggregate;
 use PrestaShop\PrestaShop\Core\Localization\Specification\NumberInterface as NumberSpecificationInterface;
+use Traversable;
 
 /**
  * Number specifications collection
@@ -53,7 +53,7 @@ class NumberCollection implements IteratorAggregate, Countable
      * @return ArrayIterator|NumberSpecificationInterface[]
      *                                                      An ArrayIterator object for iterating over Number specification items
      */
-    public function getIterator()
+    public function getIterator(): Traversable
     {
         return new ArrayIterator($this->numberSpecifications);
     }
@@ -64,7 +64,7 @@ class NumberCollection implements IteratorAggregate, Countable
      * @return int
      *             The number of Number specification items
      */
-    public function count()
+    public function count(): int
     {
         return count($this->numberSpecifications);
     }
@@ -110,9 +110,7 @@ class NumberCollection implements IteratorAggregate, Countable
      */
     public function get($index)
     {
-        return isset($this->numberSpecifications[$index])
-            ? $this->numberSpecifications[$index]
-            : null;
+        return $this->numberSpecifications[$index] ?? null;
     }
 
     /**

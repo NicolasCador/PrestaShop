@@ -30,7 +30,7 @@ use PrestaShop\PrestaShop\Core\Domain\Address\Exception\AddressException;
  */
 class AddressFormatCore extends ObjectModel
 {
-    const FORMAT_NEW_LINE = "\n";
+    public const FORMAT_NEW_LINE = "\n";
 
     /** @var int Address format */
     public $id_address_format;
@@ -115,7 +115,7 @@ class AddressFormatCore extends ObjectModel
         'Supplier',
     ];
 
-    const _CLEANING_REGEX_ = '#([^\w:_]+)#i';
+    public const _CLEANING_REGEX_ = '#([^\w:_]+)#i';
 
     /**
      * Check if the the association of the field name and a class name
@@ -168,10 +168,8 @@ class AddressFormatCore extends ObjectModel
      * if the separator is overview.
      *
      * @param string $patternName The composition of the class and field name
-     * @param string $fieldsValidate The list of available field for the Address class
-     * @todo: Why is $fieldsValidate unused?
      */
-    protected function _checkLiableAssociation($patternName, $fieldsValidate)
+    protected function _checkLiableAssociation($patternName)
     {
         $patternName = trim($patternName);
 
@@ -186,7 +184,7 @@ class AddressFormatCore extends ObjectModel
                 $this->_errorFormatList[] = $this->trans('This name is not allowed.', [], 'Admin.Notifications.Error') . ': ' .
                 $associationName[0];
             }
-        } elseif ($totalNameUsed == 2) {
+        } else {
             if (empty($associationName[0]) || empty($associationName[1])) {
                 $this->_errorFormatList[] = $this->trans('Syntax error with this pattern.', [], 'Admin.Notifications.Error') . ': ' . $patternName;
             } else {
@@ -225,7 +223,7 @@ class AddressFormatCore extends ObjectModel
                 if (is_array($patternsName)) {
                     foreach ($patternsName as $patternName) {
                         if (!in_array($patternName, $usedKeyList)) {
-                            $this->_checkLiableAssociation($patternName, $fieldsValidate);
+                            $this->_checkLiableAssociation($patternName);
                             $usedKeyList[] = $patternName;
                         } else {
                             $this->_errorFormatList[] = $this->trans('This key has already been used.', [], 'Admin.Notifications.Error') .
@@ -252,7 +250,7 @@ class AddressFormatCore extends ObjectModel
             if (!in_array($requiredField, $fieldList)) {
                 $this->_errorFormatList[] = $this->trans(
                     'The %s field (in tab %s) is required.',
-                    [$requiredField, $this->getFieldTabName($requiredField)],
+                    [htmlspecialchars($requiredField), htmlspecialchars($this->getFieldTabName($requiredField))],
                     'Admin.Notifications.Error');
             }
         }
@@ -325,7 +323,11 @@ class AddressFormatCore extends ObjectModel
                         }
                     }
 
-                    if ($formattedValue = preg_replace('/^' . $key . '$/', $formattedValueList[$key], $replacedValue, -1, $count)) {
+                    if (empty($formattedValueList[$key])) {
+                        return;
+                    }
+                    $formattedValue = preg_replace('/^' . $key . '$/', $formattedValueList[$key], $replacedValue, -1, $count);
+                    if ($formattedValue) {
                         if ($count) {
                             // Allow to check multiple key in the same pattern,
                             if (empty($mainFormattedKey)) {
@@ -401,12 +403,13 @@ class AddressFormatCore extends ObjectModel
                                 if (!isset($temporyObject[$associateName[0]])) {
                                     $temporyObject[$associateName[0]] = new $associateName[0]($address->{$idFieldName});
                                 }
-                                if ($temporyObject[$associateName[0]]) {
-                                    $tab[$pattern] = (is_array($temporyObject[$associateName[0]]->{$associateName[1]})) ?
-                                        ((isset($temporyObject[$associateName[0]]->{$associateName[1]}[$id_lang])) ?
-                                        $temporyObject[$associateName[0]]->{$associateName[1]}[$id_lang] : '') :
-                                        $temporyObject[$associateName[0]]->{$associateName[1]};
-                                }
+                                $tab[$pattern] = is_array($temporyObject[$associateName[0]]->{$associateName[1]}) ?
+                                    (
+                                        isset($temporyObject[$associateName[0]]->{$associateName[1]}[$id_lang]) ?
+                                        $temporyObject[$associateName[0]]->{$associateName[1]}[$id_lang] :
+                                        ''
+                                    ) :
+                                    $temporyObject[$associateName[0]]->{$associateName[1]};
                             }
                         }
                     }
@@ -626,7 +629,7 @@ class AddressFormatCore extends ObjectModel
     {
         $out = $this->getFormatDB($idCountry);
         if (empty($out)) {
-            $out = $this->getFormatDB(Configuration::get('PS_COUNTRY_DEFAULT'));
+            $out = $this->getFormatDB((int) Configuration::get('PS_COUNTRY_DEFAULT'));
         }
         if (Country::isNeedDniByCountryId($idCountry) && false === strpos($out, 'dni')) {
             $out .= AddressFormat::FORMAT_NEW_LINE . 'dni';

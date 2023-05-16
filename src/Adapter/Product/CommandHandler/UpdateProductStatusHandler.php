@@ -33,8 +33,11 @@ use PrestaShop\PrestaShop\Adapter\Product\Update\ProductIndexationUpdater;
 use PrestaShop\PrestaShop\Core\Domain\Product\Command\UpdateProductStatusCommand;
 use PrestaShop\PrestaShop\Core\Domain\Product\CommandHandler\UpdateProductStatusHandlerInterface;
 use PrestaShop\PrestaShop\Core\Domain\Product\Exception\CannotUpdateProductException;
+use PrestaShop\PrestaShop\Core\Domain\Shop\ValueObject\ShopConstraint;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major version.
+ *
  * @internal
  */
 class UpdateProductStatusHandler implements UpdateProductStatusHandlerInterface
@@ -49,10 +52,6 @@ class UpdateProductStatusHandler implements UpdateProductStatusHandlerInterface
      */
     private $productIndexationUpdater;
 
-    /**
-     * @param ProductRepository $productRepository
-     * @param ProductIndexationUpdater $productIndexationUpdater
-     */
     public function __construct(
         ProductRepository $productRepository,
         ProductIndexationUpdater $productIndexationUpdater
@@ -66,19 +65,15 @@ class UpdateProductStatusHandler implements UpdateProductStatusHandlerInterface
      */
     public function handle(UpdateProductStatusCommand $command)
     {
-        $product = $this->productRepository->get($command->getProductId());
-        $initialState = (bool) $product->active;
+        $allShopsConstraint = ShopConstraint::allShops();
+        $product = $this->productRepository->getByShopConstraint($command->getProductId(), $allShopsConstraint);
         $product->active = $command->getEnable();
         $this->productRepository->partialUpdate(
             $product,
             ['active'],
+            $allShopsConstraint,
             CannotUpdateProductException::FAILED_UPDATE_STATUS
         );
-
-        // If status changed we need to update its indexes (we check if it is necessary because index build can be
-        // an expensive operation).
-        if ($initialState !== $command->getEnable()) {
-            $this->productIndexationUpdater->updateIndexation($product);
-        }
+        $this->productIndexationUpdater->updateIndexation($product, $allShopsConstraint);
     }
 }

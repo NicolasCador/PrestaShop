@@ -49,6 +49,7 @@ use PrestaShop\PrestaShop\Core\Domain\Cart\Command\UpdateCartAddressesCommand;
 use PrestaShop\PrestaShop\Core\Domain\Cart\Command\UpdateCartCarrierCommand;
 use PrestaShop\PrestaShop\Core\Domain\Cart\Command\UpdateCartCurrencyCommand;
 use PrestaShop\PrestaShop\Core\Domain\Cart\Command\UpdateCartDeliverySettingsCommand;
+use PrestaShop\PrestaShop\Core\Domain\Cart\Command\UpdateProductPriceInCartCommand;
 use PrestaShop\PrestaShop\Core\Domain\Cart\Command\UpdateProductQuantityInCartCommand;
 use PrestaShop\PrestaShop\Core\Domain\Cart\Exception\CartConstraintException;
 use PrestaShop\PrestaShop\Core\Domain\Cart\Exception\CartException;
@@ -61,19 +62,18 @@ use PrestaShop\PrestaShop\Core\Domain\Product\Exception\PackOutOfStockException;
 use PrestaShop\PrestaShop\Core\Domain\Product\Exception\ProductCustomizationNotFoundException;
 use PrestaShop\PrestaShop\Core\Domain\Product\Query\SearchProducts;
 use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\FoundProduct;
-use PrestaShop\PrestaShop\Core\Domain\SpecificPrice\Command\AddSpecificPriceCommand;
 use PrestaShop\PrestaShop\Core\Domain\ValueObject\Reduction;
 use Product;
 use RuntimeException;
 use SpecificPrice;
 use State;
-use Tests\Integration\Behaviour\Features\Context\ProductFeatureContext;
+use Tests\Integration\Behaviour\Features\Context\LegacyProductFeatureContext;
 use Tests\Integration\Behaviour\Features\Context\SharedStorage;
 
 class CartFeatureContext extends AbstractDomainFeatureContext
 {
     /**
-     * @var ProductFeatureContext
+     * @var LegacyProductFeatureContext
      */
     protected $productFeatureContext;
 
@@ -82,8 +82,8 @@ class CartFeatureContext extends AbstractDomainFeatureContext
     {
         /** @var InitializedContextEnvironment $environment */
         $environment = $scope->getEnvironment();
-        /** @var ProductFeatureContext $productFeatureContext */
-        $productFeatureContext = $environment->getContext(ProductFeatureContext::class);
+        /** @var LegacyProductFeatureContext $productFeatureContext */
+        $productFeatureContext = $environment->getContext(LegacyProductFeatureContext::class);
 
         $this->productFeatureContext = $productFeatureContext;
     }
@@ -195,18 +195,9 @@ class CartFeatureContext extends AbstractDomainFeatureContext
     {
         $productId = $this->getProductIdByName($productName);
         $cartId = SharedStorage::getStorage()->get($cartReference);
-        $cart = new Cart($cartId);
 
-        $command = new AddSpecificPriceCommand(
-            $productId,
-            Reduction::TYPE_AMOUNT,
-            '0',
-            true,
-            $price,
-            1
+        $command = new UpdateProductPriceInCartCommand($cartId, $productId, 0, $price
         );
-        $command->setCartId($cartId);
-        $command->setCustomerId((int) $cart->id_customer);
 
         $this->getCommandBus()->handle($command);
     }
@@ -348,11 +339,6 @@ class CartFeatureContext extends AbstractDomainFeatureContext
 
     /**
      * @When I add :quantity items of combination :combinationName of the product :productName to the cart :cartReference
-     *
-     * @param int $quantity
-     * @param string $combinationName
-     * @param string $productName
-     * @param string $cartReference
      */
     public function addProductsCombinationsToCart(
         int $quantity,
@@ -360,22 +346,29 @@ class CartFeatureContext extends AbstractDomainFeatureContext
         string $productName,
         string $cartReference
     ) {
-        $this->productFeatureContext->checkProductWithNameExists($productName);
-        $this->productFeatureContext->checkCombinationWithNameExists($productName, $combinationName);
-        $productId = (int) $this->productFeatureContext->getProductWithName($productName)->id;
-        $combinationId = (int) $this->productFeatureContext->getCombinationWithName($productName, $combinationName)->id;
-        $cartId = (int) SharedStorage::getStorage()->get($cartReference);
-
+        // Use product reference from shared storage if available, or from legacy context otherwise
+        if ($this->getSharedStorage()->exists($productName)) {
+            $productId = (int) $this->getSharedStorage()->get($productName);
+        } else {
+            $this->productFeatureContext->checkProductWithNameExists($productName);
+            $productId = (int) $this->productFeatureContext->getProductWithName($productName)->id;
+        }
+        // Use combination reference from shared storage if available, or from legacy context otherwise
+        if ($this->getSharedStorage()->exists($combinationName)) {
+            $combinationId = $this->getSharedStorage()->get($combinationName);
+        } else {
+            $this->productFeatureContext->checkCombinationWithNameExists($productName, $combinationName);
+            $combinationId = (int) $this->productFeatureContext->getCombinationWithName($productName, $combinationName)->id;
+        }
         try {
             $this->getCommandBus()->handle(
                 new UpdateProductQuantityInCartCommand(
-                    $cartId,
+                    (int) SharedStorage::getStorage()->get($cartReference),
                     $productId,
                     $quantity,
                     $combinationId
                 )
             );
-
             // Clear cart static cache or it will have no products in next calls
             Cart::resetStaticCache();
         } catch (MinimalQuantityException $e) {
@@ -591,7 +584,7 @@ class CartFeatureContext extends AbstractDomainFeatureContext
     public function useDiscountByCodeOnCart(string $voucherCode, string $cartReference)
     {
         $cartId = SharedStorage::getStorage()->get($cartReference);
-        $cartRuleId = SharedStorage::getStorage()->get($voucherCode);
+        $cartRuleId = $this->getSharedStorage()->get($voucherCode);
 
         $this->getCommandBus()->handle(
             new AddCartRuleToCartCommand(

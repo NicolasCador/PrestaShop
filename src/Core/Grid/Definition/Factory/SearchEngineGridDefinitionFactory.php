@@ -40,7 +40,7 @@ use PrestaShop\PrestaShop\Core\Grid\Column\ColumnCollection;
 use PrestaShop\PrestaShop\Core\Grid\Column\ColumnCollectionInterface;
 use PrestaShop\PrestaShop\Core\Grid\Column\Type\Common\ActionColumn;
 use PrestaShop\PrestaShop\Core\Grid\Column\Type\Common\BulkActionColumn;
-use PrestaShop\PrestaShop\Core\Grid\Column\Type\DataColumn;
+use PrestaShop\PrestaShop\Core\Grid\Column\Type\Common\DataColumn;
 use PrestaShop\PrestaShop\Core\Grid\Filter\Filter;
 use PrestaShop\PrestaShop\Core\Grid\Filter\FilterCollection;
 use PrestaShop\PrestaShop\Core\Grid\Filter\FilterCollectionInterface;
@@ -73,7 +73,7 @@ final class SearchEngineGridDefinitionFactory extends AbstractFilterableGridDefi
      */
     protected function getName(): string
     {
-        return $this->trans('Search Engines', [], 'Admin.Navigation.Menu');
+        return $this->trans('Search engines', [], 'Admin.Navigation.Menu');
     }
 
     /**

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -70,7 +69,7 @@ class TemplateFinderCore
 
     private function getTemplateHierarchy($template, $entity, $id)
     {
-        $entity = basename($entity);
+        $entity = basename($entity ?? '');
         $id = (int) $id;
 
         if (in_array($entity, $this->getProductListEntities())) {

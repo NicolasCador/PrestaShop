@@ -41,18 +41,21 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
      * @var string
      */
     public $install_type;
+    /**
+     * @var string
+     */
+    public $translatedStrings;
 
     /**
-     * @see HttpConfigureInterface::processNextStep()
+     * {@inheritdoc}
      */
-    public function processNextStep()
+    public function processNextStep(): void
     {
         if (Tools::isSubmit('shop_name')) {
             // Save shop configuration
             $this->session->shop_name = trim(Tools::getValue('shop_name'));
             $this->session->shop_activity = Tools::getValue('shop_activity');
-            $this->session->install_type = Tools::getValue('db_mode');
-            $this->session->enable_ssl = Tools::getValue('enable_ssl');
+            $this->session->enable_ssl = (bool) Tools::getValue('enable_ssl');
             $this->session->shop_country = Tools::getValue('shop_country');
             $this->session->shop_timezone = Tools::getValue('shop_timezone');
 
@@ -73,9 +76,9 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
     }
 
     /**
-     * @see HttpConfigureInterface::validate()
+     * {@inheritdoc}
      */
-    public function validate()
+    public function validate(): bool
     {
         // List of required fields
         $required_fields = ['shop_name', 'shop_country', 'shop_timezone', 'admin_firstname', 'admin_lastname', 'admin_email', 'admin_password'];
@@ -107,8 +110,10 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
 
         // Check passwords
         if ($this->session->admin_password) {
-            if (!Validate::isPasswdAdmin($this->session->admin_password)) {
+            if (!Validate::isAcceptablePasswordLength($this->session->admin_password)) {
                 $this->errors['admin_password'] = $this->translator->trans('The password is incorrect (must be alphanumeric string with at least 8 characters)', [], 'Install');
+            } elseif (!Validate::isAcceptablePasswordScore($this->session->admin_password)) {
+                $this->errors['admin_password'] = $this->translator->trans('The password is incorrect (must be Strong)', [], 'Install');
             } elseif ($this->session->admin_password != $this->session->admin_password_confirm) {
                 $this->errors['admin_password'] = $this->translator->trans('The password and its confirmation are different', [], 'Install');
             }
@@ -122,7 +127,10 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
         return count($this->errors) ? false : true;
     }
 
-    public function process()
+    /**
+     * {@inheritdoc}
+     */
+    public function process(): void
     {
         if (Tools::getValue('timezoneByIso')) {
             $this->processTimezoneByIso();
@@ -132,7 +140,7 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
     /**
      * Obtain the timezone associated to an iso
      */
-    public function processTimezoneByIso()
+    public function processTimezoneByIso(): void
     {
         $timezone = $this->getTimezoneByIso(Tools::getValue('iso'));
         $this->ajaxJsonAnswer((bool) $timezone, $timezone);
@@ -143,7 +151,7 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
      *
      * @return array
      */
-    public function getTimezones()
+    public function getTimezones(): array
     {
         if (!file_exists(_PS_INSTALL_DATA_PATH_ . 'xml/timezone.xml')) {
             return [];
@@ -167,7 +175,7 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
      *
      * @return string
      */
-    public function getTimezoneByIso($iso)
+    public function getTimezoneByIso($iso): string
     {
         if (!file_exists(_PS_INSTALL_DATA_PATH_ . 'iso_to_timezone.xml')) {
             return '';
@@ -185,9 +193,9 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
     }
 
     /**
-     * @see HttpConfigureInterface::display()
+     * {@inheritdoc}
      */
-    public function display()
+    public function display(): void
     {
         // List of activities
         $list_activities = [
@@ -247,8 +255,40 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
             }
         }
 
-        // Install type
-        $this->install_type = ($this->session->install_type) ? $this->session->install_type : 'full';
+        $this->translatedStrings = json_encode([
+            'Straight rows of keys are easy to guess' => $this->translator->trans('Straight rows of keys are easy to guess'),
+            'Short keyboard patterns are easy to guess' => $this->translator->trans('Short keyboard patterns are easy to guess'),
+            'Use a longer keyboard pattern with more turns' => $this->translator->trans('Use a longer keyboard pattern with more turns'),
+            'Repeats like "aaa" are easy to guess' => $this->translator->trans('Repeats like "aaa" are easy to guess'),
+            'Repeats like "abcabcabc" are only slightly harder to guess than "abc"' => $this->translator->trans('Repeats like "abcabcabc" are only slightly harder to guess than "abc"'),
+            'Sequences like abc or 6543 are easy to guess' => $this->translator->trans('Sequences like "abc" or "6543" are easy to guess'),
+            'Recent years are easy to guess' => $this->translator->trans('Recent years are easy to guess'),
+            'Dates are often easy to guess' => $this->translator->trans('Dates are often easy to guess'),
+            'This is a top-10 common password' => $this->translator->trans('This is a top-10 common password'),
+            'This is a top-100 common password' => $this->translator->trans('This is a top-100 common password'),
+            'This is a very common password' => $this->translator->trans('This is a very common password'),
+            'This is similar to a commonly used password' => $this->translator->trans('This is similar to a commonly used password'),
+            'A word by itself is easy to guess' => $this->translator->trans('A word by itself is easy to guess'),
+            'Names and surnames by themselves are easy to guess' => $this->translator->trans('Names and surnames by themselves are easy to guess'),
+            'Common names and surnames are easy to guess' => $this->translator->trans('Common names and surnames are easy to guess'),
+            0 => $this->translator->trans('Very weak'),
+            1 => $this->translator->trans('Weak'),
+            2 => $this->translator->trans('Average'),
+            3 => $this->translator->trans('Strong'),
+            4 => $this->translator->trans('Very strong'),
+            'Use a few words, avoid common phrases' => $this->translator->trans('Use a few words, avoid common phrases'),
+            'No need for symbols, digits, or uppercase letters' => $this->translator->trans('No need for symbols, digits, or uppercase letters'),
+            'Avoid repeated words and characters' => $this->translator->trans('Avoid repeated words and characters'),
+            'Avoid sequences' => $this->translator->trans('Avoid sequences'),
+            'Avoid recent years' => $this->translator->trans('Avoid recent years'),
+            'Avoid years that are associated with you' => $this->translator->trans('Avoid years that are associated with you'),
+            'Avoid dates and years that are associated with you' => $this->translator->trans('Avoid dates and years that are associated with you'),
+            'Capitalization doesn\'t help very much' => $this->translator->trans('Capitalization doesn\'t help very much'),
+            'All-uppercase is almost as easy to guess as all-lowercase' => $this->translator->trans('All-uppercase is almost as easy to guess as all-lowercase'),
+            'Reversed words aren\'t much harder to guess' => $this->translator->trans('Reversed words aren\'t much harder to guess'),
+            'Predictable substitutions like \'@\' instead of \'a\' don\'t help very much' => $this->translator->trans('Predictable substitutions like "@" instead of "a" don\'t help very much'),
+            'Add another word or two. Uncommon words are better.' => $this->translator->trans('Add another word or two. Uncommon words are better.'),
+        ]);
 
         $this->displayContent('configure');
     }
@@ -258,12 +298,12 @@ class InstallControllerHttpConfigure extends InstallControllerHttp implements Ht
      *
      * @param string $field
      *
-     * @return string|void
+     * @return string|null
      */
-    public function displayError($field)
+    public function displayError(string $field): ?string
     {
         if (!isset($this->errors[$field])) {
-            return;
+            return null;
         }
 
         return '<span class="result aligned errorTxt">' . Tools::htmlentitiesUTF8($this->errors[$field]) . '</span>';

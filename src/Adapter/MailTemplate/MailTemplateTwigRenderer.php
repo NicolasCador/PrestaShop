@@ -57,22 +57,28 @@ class MailTemplateTwigRenderer implements MailTemplateRendererInterface
     /** @var TransformationCollection */
     private $transformations;
 
+    /** @var bool */
+    private $hasGiftWrapping;
+
     /**
      * @param Environment $twig
      * @param LayoutVariablesBuilderInterface $variablesBuilder
      * @param HookDispatcherInterface $hookDispatcher
+     * @param bool $hasGiftWrapping
      *
      * @throws TypeException
      */
     public function __construct(
         Environment $twig,
         LayoutVariablesBuilderInterface $variablesBuilder,
-        HookDispatcherInterface $hookDispatcher
+        HookDispatcherInterface $hookDispatcher,
+        bool $hasGiftWrapping
     ) {
         $this->twig = $twig;
         $this->variablesBuilder = $variablesBuilder;
         $this->hookDispatcher = $hookDispatcher;
         $this->transformations = new TransformationCollection();
+        $this->hasGiftWrapping = $hasGiftWrapping;
     }
 
     /**
@@ -122,6 +128,7 @@ class MailTemplateTwigRenderer implements MailTemplateRendererInterface
     ) {
         $layoutVariables = $this->variablesBuilder->buildVariables($layout, $language);
         $layoutVariables['templateType'] = $templateType;
+        $layoutVariables['giftWrapping'] = $this->hasGiftWrapping;
         if (MailTemplateInterface::HTML_TYPE === $templateType) {
             $layoutPath = !empty($layout->getHtmlPath()) ? $layout->getHtmlPath() : $layout->getTxtPath();
         } else {
@@ -156,9 +163,17 @@ class MailTemplateTwigRenderer implements MailTemplateRendererInterface
      */
     private function getMailLayoutTransformations(LayoutInterface $mailLayout, $templateType)
     {
+        $themeName = '';
+        $htmlPath = $mailLayout->getHtmlPath();
+        if ($htmlPath !== null && preg_match('#mails/themes/([^/]+)/#', $htmlPath, $matches)) {
+            $themeName = $matches[1];
+        }
         $templateTransformations = new TransformationCollection();
         /** @var TransformationInterface $transformation */
         foreach ($this->transformations as $transformation) {
+            if (get_class($transformation) == 'PrestaShop\PrestaShop\Core\MailTemplate\Transformation\CSSInlineTransformation' && $themeName == 'modern') {
+                continue;
+            }
             if ($templateType !== $transformation->getType()) {
                 continue;
             }

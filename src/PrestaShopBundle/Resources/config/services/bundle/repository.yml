@@ -2,10 +2,6 @@ services:
   _defaults:
     public: true
 
-  prestashop.module_kernel.repository:
-    class: 'PrestaShopBundle\Kernel\ModuleRepository'
-    arguments: [ '@doctrine.dbal.default_connection', '%database_prefix%' ]
-
   prestashop.core.admin.tab.repository:
     class: PrestaShopBundle\Entity\Repository\TabRepository
     factory: [ '@doctrine.orm.default_entity_manager', getRepository ]
@@ -41,7 +37,6 @@ services:
     arguments:
       - '@doctrine.dbal.default_connection'
       - '%database_prefix%'
-      - '@prestashop.core.query.doctrine_search_criteria_applicator'
 
   prestashop.core.api.stock.repository:
     class: PrestaShopBundle\Entity\Repository\StockRepository
@@ -50,7 +45,7 @@ services:
       - "@doctrine.dbal.default_connection"
       - "@doctrine.orm.default_entity_manager"
       - "@prestashop.adapter.legacy.context"
-      - "@prestashop.adapter.image_manager"
+      - '@PrestaShop\PrestaShop\Adapter\ImageManager'
       - "@prestashop.adapter.stock_manager"
       - "%database_prefix%"
 
@@ -61,8 +56,9 @@ services:
       - "@doctrine.dbal.default_connection"
       - "@doctrine.orm.default_entity_manager"
       - "@prestashop.adapter.legacy.context"
-      - "@prestashop.adapter.image_manager"
+      - '@PrestaShop\PrestaShop\Adapter\ImageManager'
       - "%database_prefix%"
+      - '@=service("prestashop.adapter.legacy.context").getLanguage().date_format_full'
 
   prestashop.core.api.supplier.repository:
     class: PrestaShopBundle\Entity\Repository\SupplierRepository
@@ -128,14 +124,17 @@ services:
       - "@doctrine.dbal.default_connection"
       - "%database_prefix%"
 
-  prestashop.core.admin.attribute_group.repository:
-    class: PrestaShopBundle\Entity\Repository\AttributeGroupRepository
-    factory: [ '@doctrine.orm.default_entity_manager', getRepository ]
-    arguments:
-      - PrestaShopBundle\Entity\AttributeGroup
-
-  prestashop.core.admin.feature_flag.repository:
-    class: Doctrine\ORM\EntityRepository
+  PrestaShopBundle\Entity\Repository\FeatureFlagRepository:
     factory: [ '@doctrine.orm.default_entity_manager', getRepository ]
     arguments:
       - PrestaShopBundle\Entity\FeatureFlag
+
+  prestashop.core.admin.feature_flag.repository:
+    alias: PrestaShopBundle\Entity\Repository\FeatureFlagRepository
+    deprecated: ~
+
+  PrestaShopBundle\Entity\Repository\AuthorizedApplicationRepository:
+    factory: [ '@doctrine.orm.default_entity_manager', getRepository ]
+    arguments:
+      - PrestaShopBundle\Entity\AuthorizedApplication
+    public: true

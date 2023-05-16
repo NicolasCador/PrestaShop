@@ -1,4 +1,4 @@
-# ./vendor/bin/behat -c tests/Integration/Behaviour/behat.yml -s product --tags legacy-product-type
+# ./vendor/bin/behat -c tests/Integration/Behaviour/behat.yml -s legacy_product --tags legacy-product-type
 @restore-products-before-feature
 @clear-cache-before-feature
 @clear-cache-after-feature
@@ -8,8 +8,8 @@ Feature: Legacy products have consistent product type through dynamic checking (
   I need to be sure that "legacy" products (created with page v1) have a correct product type (used for v2)
 
   Background:
-    Given language with iso code "en" is the default one
-    And the current currency is "USD"
+    Given shop "shop1" with name "test_shop" exists
+    And language with iso code "en" is the default one
     And attribute group "Size" named "Size" in en language exists
     And attribute group "Color" named "Color" in en language exists
     And attribute "S" named "S" in en language exists
@@ -19,6 +19,7 @@ Feature: Legacy products have consistent product type through dynamic checking (
     And attribute "Black" named "Black" in en language exists
     And attribute "Blue" named "Blue" in en language exists
     And attribute "Red" named "Red" in en language exists
+    And single shop shop1 context is loaded
 
   Scenario: I create a standard product using legacy methods, its product type should be standard
     Given there is a product in the catalog named "Standard Product" with a price of 15.0 and 100 items in stock
@@ -63,3 +64,11 @@ Feature: Legacy products have consistent product type through dynamic checking (
     And product "pack_product" type should be pack
     And product "pack_product" persisted type should be pack
     And product "pack_product" dynamic type should be pack
+
+  Scenario: I create a product with undefined type using legacy methods, this product as to be editable
+    Given there is a product in the catalog named "Undefined Product" with a price of 15.0 and 100 items in stock
+    Then there is a product "undefined_product" with name "Undefined Product"
+    And product "undefined_product" type should be standard
+    And product "undefined_product" persisted type should be undefined
+    And product "undefined_product" dynamic type should be standard
+    And product "Undefined Product" should be editable

@@ -28,18 +28,16 @@ use PrestaShop\PrestaShop\Adapter\ContainerBuilder;
 
 ob_start();
 
-require_once dirname(__FILE__) . '/../config/config.inc.php';
-
-global $kernel;
-if (null === $kernel) {
-    $kernel = new AppKernel(_PS_ENV_, _PS_MODE_DEV_);
-    $kernel->boot();
+if (!defined('_PS_API_IN_USE_')) {
+    define('_PS_API_IN_USE_', true);
 }
+
+require_once dirname(__FILE__) . '/../config/config.inc.php';
 
 // Cart is needed for some requests
 Context::getContext()->cart = new Cart();
 Context::getContext()->container = ContainerBuilder::getContainer('webservice', _PS_MODE_DEV_);
-Context::getContext()->currency = Context::getContext()->currency ?? new Currency((int) Configuration::get('PS_CURRENCY_DEFAULT'));
+Context::getContext()->currency = Context::getContext()->currency ?? Currency::getDefaultCurrency();
 
 //set http auth headers for apache+php-cgi work around
 if (isset($_SERVER['HTTP_AUTHORIZATION']) && preg_match('/Basic\s+(.*)$/i', $_SERVER['HTTP_AUTHORIZATION'], $matches)) {
@@ -68,13 +66,13 @@ if (isset($_SERVER['PHP_AUTH_USER'])) {
 
 $input_xml = null;
 
-// if a XML is in PUT or in POST
-if (($_SERVER['REQUEST_METHOD'] == 'PUT') || ($_SERVER['REQUEST_METHOD'] == 'POST')) {
-    $putresource = fopen('php://input', 'rb');
-    while ($putData = fread($putresource, 1024)) {
-        $input_xml .= $putData;
+// if a XML is in POST, PUT or PATCH
+if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH'])) {
+    $put_resource = fopen('php://input', 'rb');
+    while ($put_data = fread($put_resource, 1024)) {
+        $input_xml .= $put_data;
     }
-    fclose($putresource);
+    fclose($put_resource);
 }
 if (isset($input_xml) && strncmp($input_xml, 'xml=', 4) == 0) {
     $input_xml = substr($input_xml, 4);
@@ -94,7 +92,6 @@ WebserviceRequest::$ws_current_classname = $class_name;
 $request = call_user_func([$class_name, 'getInstance']);
 
 $result = $request->fetch($key, $method, $_GET['url'], $params, $bad_class_name, $input_xml);
-
 // display result
 if (ob_get_length() != 0) {
     header('Content-Type: application/javascript');
@@ -102,7 +99,7 @@ if (ob_get_length() != 0) {
 
 // Manage cache
 if (isset($_SERVER['HTTP_LOCAL_CONTENT_SHA1']) && $_SERVER['HTTP_LOCAL_CONTENT_SHA1'] == $result['content_sha1']) {
-    $result['status'] = $_SERVER['SERVER_PROTOCOL'] . ' 304 Not Modified';
+    $result['headers'][] = $_SERVER['SERVER_PROTOCOL'] . ' 304 Not Modified';
 }
 
 if (is_array($result['headers'])) {
@@ -110,10 +107,11 @@ if (is_array($result['headers'])) {
         header($param_value);
     }
 }
+
 if (isset($result['type'])) {
-    //	header($result['content_sha1']);
     if (!isset($_SERVER['HTTP_LOCAL_CONTENT_SHA1']) || $_SERVER['HTTP_LOCAL_CONTENT_SHA1'] != $result['content_sha1']) {
         echo $result['content'];
     }
 }
+
 ob_end_flush();

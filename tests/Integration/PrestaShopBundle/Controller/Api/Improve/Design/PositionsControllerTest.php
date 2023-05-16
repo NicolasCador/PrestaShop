@@ -35,12 +35,17 @@ use Employee;
 use Hook;
 use Module;
 use PrestaShop\PrestaShop\Adapter\Configuration;
-use PrestaShop\PrestaShop\Core\Addon\Module\ModuleManager;
+use PrestaShop\PrestaShop\Core\Module\ModuleManager;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase as TestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\RouterInterface;
 
+/**
+ * The controller installs and uninstalls modules so it needs to clear the cache, that's why it's better isolated
+ *
+ * @group isolatedProcess
+ */
 class PositionsControllerTest extends TestCase
 {
     /**
@@ -96,6 +101,7 @@ class PositionsControllerTest extends TestCase
 
         /** @var ModuleManager */
         $moduleManager = self::$kernel->getContainer()->get('prestashop.module.manager');
+        $moduleRepository = self::$kernel->getContainer()->get('prestashop.core.admin.module.repository');
         // We use modules present in tests/resources/modules to be independent with the external API
         // We install two modules that are not present in the test db to be sure every step of the install performs correctly
         // And both modules have a common hook displayHome
@@ -108,12 +114,22 @@ class PositionsControllerTest extends TestCase
             $moduleManager->install($module);
         }
 
-        $this->firstModuleId = $moduleManager->getModuleIdByName('ps_banner');
-        $this->secondModuleId = $moduleManager->getModuleIdByName('bankwire');
+        $this->firstModuleId = $moduleRepository->getModule('ps_banner')->database->get('id');
+        $this->secondModuleId = $moduleRepository->getModule('bankwire')->database->get('id');
         $this->hookId = Hook::getIdByName('displayHome');
 
         $this->client = self::createClient();
         $this->router = self::$container->get('router');
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+
+        // Remove files generate during API calls
+        if (file_exists(_PS_THEME_DIR_ . 'shop1.json')) {
+            unlink(_PS_THEME_DIR_ . 'shop1.json');
+        }
     }
 
     /**

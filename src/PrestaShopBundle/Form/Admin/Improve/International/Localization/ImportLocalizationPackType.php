@@ -31,7 +31,7 @@ use PrestaShopBundle\Form\Admin\Type\SwitchType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Class ImportLocalizationPackType is responsible for building 'Import a localization pack' form
@@ -72,10 +72,7 @@ class ImportLocalizationPackType extends TranslatorAwareType
                 ),
                 'choices' => $this->localizationPackChoices,
                 'choice_translation_domain' => false,
-                'attr' => [
-                    'data-minimumResultsForSearch' => '7',
-                    'data-toggle' => 'select2',
-                ],
+                'autocomplete' => true,
             ])
             ->add('content_to_import', ChoiceType::class, [
                 'label' => $this->trans(

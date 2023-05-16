@@ -27,6 +27,7 @@
 namespace PrestaShopBundle\Controller\Admin\Configure\AdvancedParameters;
 
 use Exception;
+use ImageManager;
 use PrestaShop\PrestaShop\Core\Domain\Profile\Command\BulkDeleteProfileCommand;
 use PrestaShop\PrestaShop\Core\Domain\Profile\Command\DeleteProfileCommand;
 use PrestaShop\PrestaShop\Core\Domain\Profile\Exception\CannotDeleteSuperAdminProfileException;
@@ -37,6 +38,7 @@ use PrestaShop\PrestaShop\Core\Domain\Profile\Exception\ProfileNotFoundException
 use PrestaShop\PrestaShop\Core\Domain\Profile\ProfileSettings;
 use PrestaShop\PrestaShop\Core\Domain\Profile\Query\GetProfileForEditing;
 use PrestaShop\PrestaShop\Core\Domain\Profile\QueryResult\EditableProfile;
+use PrestaShop\PrestaShop\Core\Image\Uploader\Exception\UploadedImageConstraintException;
 use PrestaShop\PrestaShop\Core\Search\Filters\ProfileFilters;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use PrestaShopBundle\Security\Annotation\AdminSecurity;
@@ -46,8 +48,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Class ProfilesController is responsible for displaying the
- * "Configure > Advanced parameters > Team > Profiles" page.
+ * Class ProfileController is responsible for displaying the
+ * "Configure > Advanced parameters > Team > Roles" page.
  */
 class ProfileController extends FrameworkBundleAdminController
 {
@@ -70,13 +72,13 @@ class ProfileController extends FrameworkBundleAdminController
                 'layoutHeaderToolbarBtn' => [
                     'add' => [
                         'href' => $this->generateUrl('admin_profiles_create'),
-                        'desc' => $this->trans('Add new profile', 'Admin.Advparameters.Feature'),
+                        'desc' => $this->trans('Add new role', 'Admin.Advparameters.Feature'),
                         'icon' => 'add_circle_outline',
                     ],
                 ],
                 'help_link' => $this->generateSidebarLink('AdminProfiles'),
                 'enableSidebar' => true,
-                'layoutTitle' => $this->trans('Profiles', 'Admin.Navigation.Menu'),
+                'layoutTitle' => $this->trans('Roles', 'Admin.Navigation.Menu'),
                 'grid' => $this->presentGrid($profilesGridFactory->getGrid($filters)),
                 'multistoreInfoTip' => $this->trans(
                     'Note that this page is available in all shops context only, this is why your context has just switched.',
@@ -134,7 +136,7 @@ class ProfileController extends FrameworkBundleAdminController
             $handlerResult = $formHandler->handle($form);
 
             if (null !== $handlerResult->getIdentifiableObjectId()) {
-                $this->addFlash('success', $this->trans('Successful creation.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful creation', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_profiles_index');
             }
@@ -144,7 +146,7 @@ class ProfileController extends FrameworkBundleAdminController
 
         return $this->render('@PrestaShop/Admin/Configure/AdvancedParameters/Profiles/create.html.twig', [
             'profileForm' => $form->createView(),
-            'layoutTitle' => $this->trans('Add new profile', 'Admin.Advparameters.Feature'),
+            'layoutTitle' => $this->trans('New role', 'Admin.Navigation.Menu'),
             'help_link' => $this->generateSidebarLink('AdminProfiles'),
             'enableSidebar' => true,
             'multistoreInfoTip' => $this->trans(
@@ -190,7 +192,7 @@ class ProfileController extends FrameworkBundleAdminController
             $handlerResult = $formHandler->handleFor((int) $profileId, $form);
 
             if ($handlerResult->isSubmitted() && $handlerResult->isValid()) {
-                $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_profiles_index');
             }
@@ -208,15 +210,14 @@ class ProfileController extends FrameworkBundleAdminController
         return $this->render('@PrestaShop/Admin/Configure/AdvancedParameters/Profiles/edit.html.twig', [
             'profileForm' => $form->createView(),
             'layoutTitle' => $this->trans(
-                'Edit: %value%',
-                'Admin.Catalog.Feature',
+                'Editing %role_name% role',
+                'Admin.Navigation.Menu',
                 [
-                    '%value%' => $editableProfile->getLocalizedNames()[$this->getContextLangId()],
+                    '%role_name%' => $editableProfile->getLocalizedNames()[$this->getContextLangId()],
                 ]
             ),
             'help_link' => $this->generateSidebarLink('AdminProfiles'),
             'enableSidebar' => true,
-            'editableProfile' => $editableProfile,
         ]);
     }
 
@@ -224,7 +225,7 @@ class ProfileController extends FrameworkBundleAdminController
      * Delete a profile.
      *
      * @AdminSecurity(
-     *     "is_granted('delete', request.get('_legacy_controller')~'_')",
+     *     "is_granted('delete', request.get('_legacy_controller'))",
      *     message="You do not have permission to edit this."
      * )
      * @DemoRestricted(redirectRoute="admin_profiles_index")
@@ -252,7 +253,7 @@ class ProfileController extends FrameworkBundleAdminController
      * Bulk delete profiles.
      *
      * @AdminSecurity(
-     *     "is_granted('delete', request.get('_legacy_controller')~'_')",
+     *     "is_granted('delete', request.get('_legacy_controller'))",
      *     message="You do not have permission to edit this."
      * )
      * @DemoRestricted(redirectRoute="admin_profiles_index")
@@ -286,6 +287,11 @@ class ProfileController extends FrameworkBundleAdminController
     protected function getErrorMessages()
     {
         return [
+            UploadedImageConstraintException::class => $this->trans(
+                'Image format not recognized, allowed formats are: %s',
+                'Admin.Notifications.Error',
+                [implode(', ', ImageManager::EXTENSIONS_SUPPORTED)]
+            ),
             ProfileConstraintException::class => [
                 ProfileConstraintException::INVALID_NAME => $this->trans(
                     'This field cannot be longer than %limit% characters (incl. HTML tags)',
@@ -298,7 +304,7 @@ class ProfileController extends FrameworkBundleAdminController
                 'Admin.Notifications.Error'
             ),
             CannotDeleteSuperAdminProfileException::class => $this->trans(
-                'For security reasons, you cannot delete the Administrator\'s profile.',
+                'For security reasons, you cannot delete the Administrator\'s role.',
                 'Admin.Advparameters.Notification'
             ),
             FailedToDeleteProfileException::class => [
@@ -307,11 +313,11 @@ class ProfileController extends FrameworkBundleAdminController
                     'Admin.Notifications.Error'
                 ),
                 FailedToDeleteProfileException::PROFILE_IS_ASSIGNED_TO_EMPLOYEE => $this->trans(
-                    'Profile(s) assigned to employee cannot be deleted',
+                    'Role(s) assigned to employee cannot be deleted',
                     'Admin.Notifications.Error'
                 ),
                 FailedToDeleteProfileException::PROFILE_IS_ASSIGNED_TO_CONTEXT_EMPLOYEE => $this->trans(
-                    'You cannot delete your own profile',
+                    'You cannot delete your own role',
                     'Admin.Notifications.Error'
                 ),
             ],

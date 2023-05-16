@@ -27,7 +27,7 @@
 namespace PrestaShop\PrestaShop\Adapter\Module\Tab;
 
 use Exception;
-use PrestaShop\PrestaShop\Core\Addon\Module\ModuleInterface;
+use PrestaShop\PrestaShop\Core\Module\ModuleInterface;
 use PrestaShopBundle\Entity\Repository\LangRepository;
 use PrestaShopBundle\Entity\Repository\TabRepository;
 use Psr\Log\LoggerInterface;
@@ -36,7 +36,7 @@ use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 use Symfony\Component\HttpFoundation\ParameterBag;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use TabCore as Tab;
 
 /**
@@ -67,7 +67,7 @@ class ModuleTabRegister
     private $logger;
 
     /**
-     * @var \Symfony\Component\Translation\TranslatorInterface
+     * @var TranslatorInterface
      */
     private $translator;
 
@@ -197,10 +197,8 @@ class ModuleTabRegister
         $legacyControllers = array_map(function ($legacyControllersFilename) {
             return str_replace('Controller.php', '', $legacyControllersFilename);
         }, $legacyControllersFilenames);
-        $legacyControllers = $legacyControllers ?? [];
 
         $routingControllers = $this->getModuleControllersFromRouting($moduleName);
-        $routingControllers = $routingControllers ?? [];
 
         return array_merge($legacyControllers, $routingControllers);
     }

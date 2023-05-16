@@ -1,3 +1,30 @@
+<?php
+/**
+ * Copyright since 2007 PrestaShop SA and Contributors
+ * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.md.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to https://devdocs.prestashop.com/ for more information.
+ *
+ * @author    PrestaShop SA and Contributors <contact@prestashop.com>
+ * @copyright Since 2007 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
+?>
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" >
   <head>
@@ -9,7 +36,7 @@
     <meta http-equiv="Expires" content="-1" />
     <meta name="robots" content="noindex" />
     <link rel="shortcut icon" href="theme/img/favicon.ico" />
-    <link rel="stylesheet" type="text/css" media="all" href="theme/view.css" />
+    <link rel="stylesheet" type="text/css" media="all" href="theme/view.css?version=<?php echo _PS_VERSION_; ?>" />
 
     <?php if ($this->language->getLanguage()->isRtl() == 'true') { ?>
       <link rel="stylesheet" type="text/css" media="all" href="theme/rtl.css" />
@@ -18,9 +45,13 @@
     <script type="text/javascript" src="../js/jquery/jquery-3.5.1.min.js"></script>
     <script type="text/javascript" src="../js/jquery/jquery-migrate-3.1.0.min.js"></script>
     <script type="text/javascript" src="../js/jquery/plugins/jquery.chosen.js"></script>
+
+    <script src="theme/js/sprintf.min.js" integrity="sha512-pmG0OkYtZVB2EqETE5HPsEaok7sNZFfStp5rNdpHv0tGQjbt1z8Qjzhtx88/4wsttOtDwq5DZGJyKyzEe7ribg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="theme/js/zxcvbn.js" integrity="sha512-TZlMGFY9xKj38t/5m2FzJ+RM/aD5alMHDe26p0mYUMoCF5G7ibfHUQILq0qQPV3wlsnCwL+TPRNK4vIWGLOkUQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
     <script type="text/javascript" src="theme/js/install.js"></script>
     <?php if (file_exists(_PS_INSTALL_PATH_ . 'theme/js/' . self::getSteps()->current()->getName() . '.js')) { ?>
-      <script type="text/javascript" src="theme/js/<?php echo self::getSteps()->current()->getName(); ?>.js"></script>
+      <script type="text/javascript" src="theme/js/<?php echo self::getSteps()->current()->getName(); ?>.js?version=<?php echo _PS_VERSION_; ?>"></script>
     <?php } ?>
     <script type="text/javascript">
       var ps_base_uri = '<?php echo addslashes(__PS_BASE_URI__); ?>';

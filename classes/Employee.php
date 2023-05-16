@@ -25,7 +25,9 @@
  */
 use PrestaShop\PrestaShop\Adapter\CoreException;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
+use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
 use PrestaShop\PrestaShop\Core\Crypto\Hashing;
+use PrestaShopBundle\Security\Admin\SessionRenewer;
 
 /**
  * Class EmployeeCore.
@@ -82,9 +84,6 @@ class EmployeeCore extends ObjectModel
     /** @var bool */
     public $bo_menu = true;
 
-    /* Deprecated */
-    public $bo_show_screencast = false;
-
     /** @var bool Status */
     public $active = true;
 
@@ -117,7 +116,7 @@ class EmployeeCore extends ObjectModel
             'firstname' => ['type' => self::TYPE_STRING, 'validate' => 'isName', 'required' => true, 'size' => 255],
             'email' => ['type' => self::TYPE_STRING, 'validate' => 'isEmail', 'required' => true, 'size' => 255],
             'id_lang' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true],
-            'passwd' => ['type' => self::TYPE_STRING, 'validate' => 'isPlaintextPassword', 'required' => true, 'size' => 255],
+            'passwd' => ['type' => self::TYPE_STRING, 'validate' => 'isHashedPassword', 'required' => true, 'size' => 255],
             'last_passwd_gen' => ['type' => self::TYPE_STRING],
             'active' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
             'id_profile' => ['type' => self::TYPE_INT, 'validate' => 'isInt', 'required' => true],
@@ -306,7 +305,7 @@ class EmployeeCore extends ObjectModel
      */
     public function getByEmail($email, $plaintextPassword = null, $activeOnly = true)
     {
-        if (!Validate::isEmail($email) || ($plaintextPassword != null && !Validate::isPlaintextPassword($plaintextPassword))) {
+        if (!Validate::isEmail($email)) {
             die(Tools::displayError());
         }
 
@@ -320,7 +319,8 @@ class EmployeeCore extends ObjectModel
 
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow($sql);
         if (!$result) {
-            return false;
+            // Create fake result to make sure computing time does not allow password enumeration
+            $result = ['passwd' => '123456'];
         }
 
         /** @var Hashing $crypto */
@@ -491,6 +491,11 @@ class EmployeeCore extends ObjectModel
             Context::getContext()->cookie->write();
         }
 
+        $sfContainer = SymfonyContainer::getInstance();
+        if ($sfContainer !== null) {
+            $sfContainer->get(SessionRenewer::class)->renew();
+        }
+
         $this->id = null;
     }
 
@@ -602,12 +607,10 @@ class EmployeeCore extends ObjectModel
     public function getImage()
     {
         $defaultSystem = Tools::getAdminImageUrl('pr/default.jpg');
-        $imageUrl = null;
 
         // Default from Profile
         $profile = new Profile($this->id_profile);
-        $defaultProfile = (int) $profile->id === (int) $this->id_profile ? $profile->getProfileImage() : null;
-        $imageUrl = $imageUrl ?? $defaultProfile;
+        $imageUrl = (int) $profile->id === (int) $this->id_profile ? $profile->getProfileImage() : null;
 
         // Gravatar
         if ($this->has_enabled_gravatar) {
@@ -682,7 +685,7 @@ class EmployeeCore extends ObjectModel
      */
     public function stampResetPasswordToken()
     {
-        $salt = $this->id . '+' . uniqid(mt_rand(0, mt_getrandmax()), true);
+        $salt = $this->id . '+' . uniqid((string) mt_rand(0, mt_getrandmax()), true);
         $this->reset_password_token = sha1(time() . $salt);
         $validity = (int) Configuration::get('PS_PASSWD_RESET_VALIDITY') ?: 1440;
         $this->reset_password_validity = date('Y-m-d H:i:s', strtotime('+' . $validity . ' minutes'));
@@ -693,7 +696,7 @@ class EmployeeCore extends ObjectModel
      */
     public function hasRecentResetPasswordToken()
     {
-        if (!$this->reset_password_token || $this->reset_password_token == '') {
+        if (!$this->reset_password_token) {
             return false;
         }
 
@@ -710,7 +713,7 @@ class EmployeeCore extends ObjectModel
      */
     public function getValidResetPasswordToken()
     {
-        if (!$this->reset_password_token || $this->reset_password_token == '') {
+        if (!$this->reset_password_token) {
             return false;
         }
 

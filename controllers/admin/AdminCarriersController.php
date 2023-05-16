@@ -29,6 +29,7 @@
  */
 class AdminCarriersControllerCore extends AdminController
 {
+    /** @var string */
     protected $position_identifier = 'id_carrier';
 
     public function __construct()
@@ -139,25 +140,23 @@ class AdminCarriersControllerCore extends AdminController
         $this->_join = 'INNER JOIN `' . _DB_PREFIX_ . 'carrier_lang` b ON a.id_carrier = b.id_carrier' . Shop::addSqlRestrictionOnLang('b') . ' AND b.id_lang = ' . (int) $this->context->language->id . ' LEFT JOIN `' . _DB_PREFIX_ . 'carrier_tax_rules_group_shop` ctrgs ON (a.`id_carrier` = ctrgs.`id_carrier` AND ctrgs.id_shop=' . (int) $this->context->shop->id . ')';
         $this->_use_found_rows = false;
 
-        // Removes the Recommended modules button
-        unset($this->page_header_toolbar_btn['modules-list']);
-
         // test if need to show header alert.
-        $sql = 'SELECT COUNT(1) FROM `' . _DB_PREFIX_ . 'carrier` WHERE deleted = 0 AND id_reference > 2';
-        $showHeaderAlert = (Db::getInstance()->executeS($sql, false)->fetchColumn(0) == 0);
-
-        // Assign them in two steps! Because renderModulesList needs it before to be called.
-        $this->context->smarty->assign('panel_title', $this->trans('Use one of our recommended carrier modules', [], 'Admin.Shipping.Feature'));
-        $this->context->smarty->assign('panel_id', 'recommended-carriers-panel');
 
         $this->context->smarty->assign([
-            'showHeaderAlert' => $showHeaderAlert,
-            'modules_list' => $this->renderModulesList('back-office,AdminCarriers,new'),
+            'showHeaderAlert' => (Db::getInstance()->executeS(
+                    'SELECT COUNT(1) FROM `' . _DB_PREFIX_ . 'carrier` WHERE deleted = 0 AND id_reference > 2',
+                    false
+                )->fetchColumn(0) == 0),
         ]);
 
         return parent::renderList();
     }
 
+    /**
+     * @return string|void
+     *
+     * @throws SmartyException
+     */
     public function renderForm()
     {
         $this->fields_form = [
@@ -396,7 +395,7 @@ class AdminCarriersControllerCore extends AdminController
         if (Shop::isFeatureActive()) {
             $this->fields_form['input'][] = [
                 'type' => 'shop',
-                'label' => $this->trans('Shop association', [], 'Admin.Global'),
+                'label' => $this->trans('Store association', [], 'Admin.Global'),
                 'name' => 'checkBoxShopAsso',
             ];
         }
@@ -416,10 +415,6 @@ class AdminCarriersControllerCore extends AdminController
 
     public function postProcess()
     {
-        if (Tools::getValue('action') == 'GetModuleQuickView' && Tools::getValue('ajax') == '1') {
-            $this->ajaxProcessGetModuleQuickView();
-        }
-
         if (Tools::getValue('submitAdd' . $this->table)) {
             /* Checking fields validity */
             $this->validateRules();
@@ -630,35 +625,9 @@ class AdminCarriersControllerCore extends AdminController
         }
     }
 
-    /**
-     * Modifying initial getList method to display position feature (drag and drop).
-     *
-     * @param int $id_lang
-     * @param string|null $order_by
-     * @param string|null $order_way
-     * @param int $start
-     * @param int|null $limit
-     * @param int|bool $id_lang_shop
-     *
-     * @throws PrestaShopException
-     */
-    public function getList($id_lang, $order_by = null, $order_way = null, $start = 0, $limit = null, $id_lang_shop = false)
-    {
-        // Replace "0" by the name of the shop directly in SQL query (allowing sort without errors)
-        if (!empty($this->_select)) {
-            $this->_select .= ', ';
-        }
-        $this->_select .= sprintf(
-            'IF(name = "0", "%s", name) AS name',
-            pSQL(Carrier::getCarrierNameFromShopName())
-        );
-
-        parent::getList($id_lang, $order_by, $order_way, $start, $limit, $id_lang_shop);
-    }
-
     public function ajaxProcessUpdatePositions()
     {
-        $way = (int) (Tools::getValue('way'));
+        $way = (bool) (Tools::getValue('way'));
         $id_carrier = (int) (Tools::getValue('id'));
         $positions = Tools::getValue($this->table);
 
@@ -666,7 +635,8 @@ class AdminCarriersControllerCore extends AdminController
             $pos = explode('_', $value);
 
             if (isset($pos[2]) && (int) $pos[2] === $id_carrier) {
-                if ($carrier = new Carrier((int) $pos[2])) {
+                $carrier = new Carrier((int) $pos[2]);
+                if (Validate::isLoadedObject($carrier)) {
                     if (isset($position) && $carrier->updatePosition($way, $position)) {
                         echo 'ok position ' . (int) $position . ' for carrier ' . (int) $pos[1] . '\r\n';
                     } else {

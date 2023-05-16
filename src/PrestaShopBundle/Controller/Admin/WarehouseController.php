@@ -26,10 +26,14 @@
 
 namespace PrestaShopBundle\Controller\Admin;
 
+use PrestaShop\PrestaShop\Adapter\Product\AdminProductWrapper;
+use PrestaShop\PrestaShop\Adapter\Tools;
 use PrestaShopBundle\Model\Product\AdminModelAdapter as ProductAdminModelAdapter;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major.
+ *
  * Admin controller for warehouse on the /product/form page.
  */
 class WarehouseController extends FrameworkBundleAdminController
@@ -59,8 +63,8 @@ class WarehouseController extends FrameworkBundleAdminController
         $modelMapper = new ProductAdminModelAdapter(
             $product,
             $this->get('prestashop.adapter.legacy.context'),
-            $this->get('prestashop.adapter.admin.wrapper.product'),
-            $this->get('prestashop.adapter.tools'),
+            $this->get(AdminProductWrapper::class),
+            $this->get(Tools::class),
             $this->get('prestashop.adapter.data_provider.product'),
             $this->get('prestashop.adapter.data_provider.supplier'),
             $this->get('prestashop.adapter.data_provider.warehouse'),
@@ -68,6 +72,7 @@ class WarehouseController extends FrameworkBundleAdminController
             $this->get('prestashop.adapter.data_provider.pack'),
             $this->get('prestashop.adapter.shop.context'),
             $this->get('prestashop.adapter.data_provider.tax'),
+            $this->get('prestashop.adapter.legacy.configuration'),
             $this->get('router')
         );
         $allFormData = $modelMapper->getFormData($product);

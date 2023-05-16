@@ -32,6 +32,8 @@ use PrestaShop\PrestaShop\Adapter\Shop\Context;
 use PrestaShop\PrestaShop\Core\Domain\Configuration\ShopConfigurationInterface;
 use PrestaShop\PrestaShop\Core\Feature\FeatureInterface;
 use PrestaShopBundle\Controller\Admin\MultistoreController;
+use PrestaShopBundle\Form\Extension\MultistoreConfigurationTypeExtension;
+use PrestaShopBundle\Form\FormCloner;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\FormInterface;
 
@@ -58,7 +60,7 @@ class MultistoreCheckboxEnabler
     /**
      * @var FeatureInterface
      */
-    private $multistoreFeature;
+    private $multiStoreFeature;
 
     /**
      * @var ShopConfigurationInterface
@@ -76,23 +78,31 @@ class MultistoreCheckboxEnabler
     private $multistoreController;
 
     /**
+     * @var FormCloner
+     */
+    private $formCloner;
+
+    /**
      * MultistoreCheckboxEnabler constructor.
      *
-     * @param FeatureInterface $multistoreFeature
+     * @param FeatureInterface $multiStoreFeature
      * @param ShopConfigurationInterface $configuration
      * @param Context $multiStoreContext
      * @param MultistoreController $multistoreController
+     * @param FormCloner $formCloner
      */
     public function __construct(
-        FeatureInterface $multistoreFeature,
+        FeatureInterface $multiStoreFeature,
         ShopConfigurationInterface $configuration,
         Context $multiStoreContext,
-        MultistoreController $multistoreController
+        MultistoreController $multistoreController,
+        FormCloner $formCloner
     ) {
-        $this->multistoreFeature = $multistoreFeature;
+        $this->multiStoreFeature = $multiStoreFeature;
         $this->configuration = $configuration;
         $this->multiStoreContext = $multiStoreContext;
         $this->multistoreController = $multistoreController;
+        $this->formCloner = $formCloner;
     }
 
     /**
@@ -100,7 +110,7 @@ class MultistoreCheckboxEnabler
      */
     public function shouldAddMultistoreElements(): bool
     {
-        if (!$this->multistoreFeature->isUsed()) {
+        if (!$this->multiStoreFeature->isUsed()) {
             return false;
         }
 
@@ -166,12 +176,10 @@ class MultistoreCheckboxEnabler
             )->getContent();
         }
 
-        // update field
-        $form->add(
-            $childElement->getName(),
-            get_class($childElement->getConfig()->getType()->getInnerType()),
-            $options
-        );
+        // clone the field so that we keep all existing options, model transformers, listeners, etc...
+        $clonedField = $this->formCloner->cloneForm($form->get($childElement->getName()), $options);
+
+        $form->add($clonedField);
     }
 
     /**

@@ -33,11 +33,11 @@ class DispatcherCore
     /**
      * List of available front controllers types.
      */
-    const FC_FRONT = 1;
-    const FC_ADMIN = 2;
-    const FC_MODULE = 3;
+    public const FC_FRONT = 1;
+    public const FC_ADMIN = 2;
+    public const FC_MODULE = 3;
 
-    const REWRITE_PATTERN = '[_a-zA-Z0-9\x{0600}-\x{06FF}\pL\pS-]*?';
+    public const REWRITE_PATTERN = '[_a-zA-Z0-9\x{0600}-\x{06FF}\pL\pS-]*?';
 
     /**
      * @var Dispatcher|null
@@ -53,6 +53,13 @@ class DispatcherCore
      * @var array List of default routes
      */
     public $default_routes = [
+        'upload' => [
+            'controller' => 'upload',
+            'rule' => 'upload/{file}',
+            'keywords' => [
+                'file' => ['regexp' => '.+', 'param' => 'file'],
+            ],
+        ],
         'category_rule' => [
             'controller' => 'category',
             'rule' => '{id}-{rewrite}',
@@ -119,7 +126,7 @@ class DispatcherCore
             'rule' => '{category:/}{id}{-:id_product_attribute}-{rewrite}{-:ean13}.html',
             'keywords' => [
                 'id' => ['regexp' => '[0-9]+', 'param' => 'id_product'],
-                'id_product_attribute' => ['regexp' => '[0-9]+', 'param' => 'id_product_attribute'],
+                'id_product_attribute' => ['regexp' => '[0-9]*+', 'param' => 'id_product_attribute'],
                 'rewrite' => ['regexp' => self::REWRITE_PATTERN, 'param' => 'rewrite'],
                 'ean13' => ['regexp' => '[0-9\pL]*'],
                 'category' => ['regexp' => '[_a-zA-Z0-9-\pL]*'],
@@ -410,7 +417,7 @@ class DispatcherCore
                     );
                 }
 
-                $tab = Tab::getInstanceFromClassName($this->controller, Configuration::get('PS_LANG_DEFAULT'));
+                $tab = Tab::getInstanceFromClassName($this->controller, (int) Configuration::get('PS_LANG_DEFAULT'));
                 $retrocompatibility_admin_tab = null;
 
                 if ($tab->module) {
@@ -1012,12 +1019,12 @@ class DispatcherCore
             $controller = $this->controller_not_found;
             $test_request_uri = preg_replace('/(=http:\/\/)/', '=', $this->request_uri);
 
-            // If the request_uri matches a static file, then there is no need to check the routes, we keep
+            // If the request_uri matches a static file, unless it's in the upload folder,
+            // then there is no need to check the routes, we keep
             // "controller_not_found" (a static file should not go through the dispatcher)
-            if (!preg_match(
-                '/\.(gif|jpe?g|png|css|js|ico)$/i',
-                parse_url($test_request_uri, PHP_URL_PATH)
-            )) {
+            if (
+                !preg_match('/\.(gif|jpe?g|png|css|js|ico)$/i', parse_url($test_request_uri, PHP_URL_PATH))
+                || preg_match('/^\/upload/', parse_url($test_request_uri, PHP_URL_PATH))) {
                 // Add empty route as last route to prevent this greedy regexp to match request uri before right time
                 if ($this->empty_route) {
                     $this->addRoute(
@@ -1081,7 +1088,7 @@ class DispatcherCore
     /**
      * Get list of all available FO controllers.
      *
-     * @var mixed
+     * @param mixed $dirs
      *
      * @return array
      */

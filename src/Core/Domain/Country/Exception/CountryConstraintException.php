@@ -31,5 +31,7 @@ namespace PrestaShop\PrestaShop\Core\Domain\Country\Exception;
  */
 class CountryConstraintException extends CountryException
 {
-    public const INVALID_ID = 1;
+    public const INVALID_ID = 10;
+
+    public const INVALID_ZIP_CODE = 20;
 }

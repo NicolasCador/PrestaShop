@@ -102,6 +102,13 @@ class HelperOptionsCore extends Helper
 
                 $field['required'] = isset($field['required']) ? $field['required'] : $this->required;
 
+                if ($field['type'] === 'checkbox' && isset($field['value_multiple'])) {
+                    $multipleValues = is_array($field['value']) ? $field['value'] : explode(',', $field['value']);
+                    foreach ($multipleValues as $currentValue) {
+                        $field['value_multiple'][$currentValue] = true;
+                    }
+                }
+
                 if ($field['type'] == 'color') {
                     $has_color_field = true;
                     $this->context->controller->addJqueryPlugin('colorpicker');
@@ -250,6 +257,7 @@ class HelperOptionsCore extends Helper
             'currency_right_sign' => $this->context->currency->getSign('right'),
             'use_multishop' => $use_multishop,
             'has_color_field' => $has_color_field,
+            'controller_name' => $this->controller_name,
         ]);
 
         return parent::generate();
@@ -305,6 +313,11 @@ class HelperOptionsCore extends Helper
     public function getOptionValue($key, $field)
     {
         $value = Tools::getValue($key, Configuration::get($key));
+
+        if (!empty($field['skip_clean_html'])) {
+            return $value;
+        }
+
         if (!Validate::isCleanHtml($value)) {
             $value = Configuration::get($key);
         }

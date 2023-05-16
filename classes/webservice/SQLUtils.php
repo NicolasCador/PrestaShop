@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -24,6 +23,7 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
+
 declare(strict_types=1);
 
 class SQLUtils
@@ -59,7 +59,8 @@ class SQLUtils
                     unset($matches3[0]);
                     if (count($matches3) > 0) {
                         sort($matches3);
-                        $ret .= ' AND ' . $tableAlias . '`' . bqSQL($sqlId) . '` BETWEEN "' . pSQL($matches3[0]) . '" AND "' . pSQL($matches3[1]) . "\"\n";
+                        [$first, $last] = array_values($matches3); // reset-keys
+                        $ret .= ' AND ' . $tableAlias . '`' . bqSQL($sqlId) . '` BETWEEN "' . pSQL($first) . '" AND "' . pSQL($last) . "\"\n";
                     }
                 } else {
                     $ret .= ' AND ' . $tableAlias . '`' . bqSQL($sqlId) . '`="' . pSQL($matches[2]) . '"' . "\n";

@@ -24,6 +24,8 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 
+use PrestaShop\PrestaShop\Core\Security\Permission;
+
 /**
  * Class TabCore.
  */
@@ -64,7 +66,7 @@ class TabCore extends ObjectModel
     /**
      * @deprecated Since 1.7.7
      */
-    const TAB_MODULE_LIST_URL = '';
+    public const TAB_MODULE_LIST_URL = '';
 
     /**
      * @see ObjectModel::$definition
@@ -149,7 +151,7 @@ class TabCore extends ObjectModel
         }
 
         /* Right management */
-        $slug = 'ROLE_MOD_TAB_' . strtoupper(self::getClassNameById($idTab));
+        $slug = Permission::PREFIX_TAB . strtoupper(self::getClassNameById($idTab));
 
         foreach (['CREATE', 'READ', 'UPDATE', 'DELETE'] as $action) {
             /*
@@ -170,7 +172,7 @@ class TabCore extends ObjectModel
 
         $access = new Access();
         foreach (['view', 'add', 'edit', 'delete'] as $action) {
-            $access->updateLgcAccess('1', $idTab, $action, true);
+            $access->updateLgcAccess(1, $idTab, $action, true);
 
             if ($context->employee && $context->employee->id_profile) {
                 $access->updateLgcAccess($context->employee->id_profile, $idTab, $action, true);
@@ -183,7 +185,7 @@ class TabCore extends ObjectModel
     public function delete()
     {
         if (parent::delete()) {
-            $slug = 'ROLE_MOD_TAB_' . strtoupper($this->class_name);
+            $slug = Permission::PREFIX_TAB . strtoupper($this->class_name);
 
             foreach (['CREATE', 'READ', 'UPDATE', 'DELETE'] as $action) {
                 Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'authorization_role` WHERE `slug` = "' . $slug . '_' . $action . '"');
@@ -205,6 +207,11 @@ class TabCore extends ObjectModel
     public static function resetStaticCache()
     {
         self::$_getIdFromClassName = null;
+    }
+
+    public static function resetTabCache()
+    {
+        self::$_cache_tabs = [];
     }
 
     /**
@@ -690,43 +697,5 @@ class TabCore extends ObjectModel
     public static function getClassNameById($idTab)
     {
         return Db::getInstance()->getValue('SELECT class_name FROM ' . _DB_PREFIX_ . 'tab WHERE id_tab = ' . (int) $idTab);
-    }
-
-    public static function getTabModulesList($idTab)
-    {
-        $modulesList = ['default_list' => [], 'slider_list' => []];
-
-        if (!Tools::isFileFresh(Module::CACHE_FILE_TAB_MODULES_LIST, Tools::CACHE_LIFETIME_SECONDS)) {
-            Tools::refreshFile(Module::CACHE_FILE_TAB_MODULES_LIST, _PS_TAB_MODULE_LIST_URL_);
-        }
-
-        $xmlTabModulesList = @simplexml_load_file(_PS_ROOT_DIR_ . Module::CACHE_FILE_TAB_MODULES_LIST);
-
-        $className = null;
-        $displayType = 'default_list';
-        if ($xmlTabModulesList) {
-            foreach ($xmlTabModulesList->tab as $tab) {
-                foreach ($tab->attributes() as $key => $value) {
-                    if ($key == 'class_name') {
-                        $className = (string) $value;
-                    }
-                }
-
-                if (Tab::getIdFromClassName((string) $className) == $idTab) {
-                    foreach ($tab->attributes() as $key => $value) {
-                        if ($key == 'display_type') {
-                            $displayType = (string) $value;
-                        }
-                    }
-
-                    foreach ($tab->children() as $module) {
-                        $modulesList[$displayType][(int) $module['position']] = (string) $module['name'];
-                    }
-                    ksort($modulesList[$displayType]);
-                }
-            }
-        }
-
-        return $modulesList;
     }
 }

@@ -25,6 +25,8 @@
  */
 use PrestaShop\PrestaShop\Adapter\CoreException;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
+use PrestaShop\PrestaShop\Core\Domain\Shop\Exception\InvalidShopConstraintException;
+use PrestaShop\PrestaShop\Core\Domain\Shop\ValueObject\ShopConstraint;
 
 /***
  * Class CustomerCore
@@ -118,7 +120,7 @@ class CustomerCore extends ObjectModel
     /** @var bool True if carrier has been deleted (staying in database as deleted) */
     public $deleted = false;
 
-    /** @var string Object creation date */
+    /** @var string|null Object creation date */
     public $date_add;
 
     /** @var string Object last modification date */
@@ -180,7 +182,7 @@ class CustomerCore extends ObjectModel
             'lastname' => ['type' => self::TYPE_STRING, 'validate' => 'isCustomerName', 'required' => true, 'size' => 255],
             'firstname' => ['type' => self::TYPE_STRING, 'validate' => 'isCustomerName', 'required' => true, 'size' => 255],
             'email' => ['type' => self::TYPE_STRING, 'validate' => 'isEmail', 'required' => true, 'size' => 255],
-            'passwd' => ['type' => self::TYPE_STRING, 'validate' => 'isPlaintextPassword', 'required' => true, 'size' => 255],
+            'passwd' => ['type' => self::TYPE_STRING, 'validate' => 'isHashedPassword', 'required' => true, 'size' => 255],
             'last_passwd_gen' => ['type' => self::TYPE_STRING, 'copy_post' => false],
             'id_gender' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId'],
             'birthday' => ['type' => self::TYPE_DATE, 'validate' => 'isBirthDate'],
@@ -244,13 +246,14 @@ class CustomerCore extends ObjectModel
         $this->id_shop_group = ($this->id_shop_group) ? $this->id_shop_group : Context::getContext()->shop->id_shop_group;
         $this->id_lang = ($this->id_lang) ? $this->id_lang : Context::getContext()->language->id;
         $this->birthday = (empty($this->years) ? $this->birthday : (int) $this->years . '-' . (int) $this->months . '-' . (int) $this->days);
-        $this->secure_key = md5(uniqid(mt_rand(0, mt_getrandmax()), true));
+        $this->secure_key = md5(uniqid((string) mt_rand(0, mt_getrandmax()), true));
         $this->last_passwd_gen = date('Y-m-d H:i:s', strtotime('-' . Configuration::get('PS_PASSWD_TIME_FRONT') . 'minutes'));
 
         if ($this->newsletter && !Validate::isDate($this->newsletter_date_add)) {
             $this->newsletter_date_add = date('Y-m-d H:i:s');
         }
 
+        // Set default group of the customer depending on prestashop configuration
         if ($this->id_default_group == Configuration::get('PS_CUSTOMER_GROUP')) {
             if ($this->is_guest) {
                 $this->id_default_group = (int) Configuration::get('PS_GUEST_GROUP');
@@ -264,6 +267,8 @@ class CustomerCore extends ObjectModel
             return false;
         }
         $success = parent::add($autoDate, $nullValues);
+
+        // Update the group assignments themselves
         $this->updateGroup($this->groupBox);
 
         return $success;
@@ -282,7 +287,8 @@ class CustomerCore extends ObjectModel
      */
     public function addWs($autodate = true, $null_values = false)
     {
-        if (Customer::customerExists($this->email)) {
+        // Check if registered customer exists with the email we are trying to add
+        if (!$this->isGuest() && Customer::customerExists($this->email)) {
             WebserviceRequest::getInstance()->setError(
                 500,
                 $this->trans(
@@ -351,9 +357,10 @@ class CustomerCore extends ObjectModel
      */
     public function updateWs($nullValues = false)
     {
-        if (Customer::customerExists($this->email)
-            && Customer::customerExists($this->email, true) !== (int) $this->id
-        ) {
+        // Check if registered customer exists with the email we are trying to add.
+        // Also check if the customer found is a different customer than our object.
+        $customerExists = (int) Customer::customerExists($this->email, true);
+        if (!$this->isGuest() && $customerExists > 0 && $customerExists !== (int) $this->id) {
             WebserviceRequest::getInstance()->setError(
                 500,
                 $this->trans(
@@ -435,7 +442,7 @@ class CustomerCore extends ObjectModel
      *
      * @param string $email e-mail
      * @param string $plaintextPassword Password is also checked if specified
-     * @param bool $ignoreGuest
+     * @param bool $ignoreGuest to ignore guest customers
      *
      * @return bool|Customer|CustomerCore Customer instance
      *
@@ -448,11 +455,6 @@ class CustomerCore extends ObjectModel
                 'Cannot get customer by email as %s is not a valid email',
                 $email
             ));
-        }
-        if (($plaintextPassword && !Validate::isPlaintextPassword($plaintextPassword))) {
-            throw new \InvalidArgumentException(
-                'Cannot get customer by email as given password is not a valid password'
-            );
         }
 
         $shopGroup = Shop::getGroupFromShop(Shop::getContextShopID(), false);
@@ -526,7 +528,7 @@ class CustomerCore extends ObjectModel
      *
      * @param string $email
      *
-     * @return array
+     * @return array Customers
      */
     public static function getCustomersByEmail($email)
     {
@@ -570,8 +572,8 @@ class CustomerCore extends ObjectModel
      * Check if e-mail is already registered in database.
      *
      * @param string $email e-mail
-     * @param bool $returnId
-     * @param bool $ignoreGuest To exclude guest customer
+     * @param bool $returnId If true the method returns the Customer ID, or boolean
+     * @param bool $ignoreGuest to ignore guest customers
      *
      * @return bool|int Customer ID if found
      *                  `false` otherwise
@@ -790,12 +792,13 @@ class CustomerCore extends ObjectModel
                         `id_lang` = ' . (int) $idLang . '
                         AND `id_customer` = ' . (int) $this->id . '
                         AND a.`deleted` = 0
-                        AND a.`active` = 1
-                    ORDER BY a.`alias`';
+                        AND a.`active` = 1';
 
         if (null !== $idAddress) {
             $sql .= ' AND a.`id_address` = ' . (int) $idAddress;
         }
+
+        $sql .= ' ORDER BY a.`alias`';
 
         return $sql;
     }
@@ -860,18 +863,31 @@ class CustomerCore extends ObjectModel
      *
      * @param string $query Searched string
      * @param int|null $limit Limit query results
+     * @param ShopConstraint|null $shopConstraint provide specific shop constraint or else it will use context shops for search
      *
      * @return array|false|mysqli_result|PDOStatement|resource|null Corresponding customers
      *
      * @throws PrestaShopDatabaseException
      */
-    public static function searchByName($query, $limit = null)
+    public static function searchByName($query, $limit = null, ?ShopConstraint $shopConstraint = null)
     {
-        $sql = 'SELECT c.*, 
-                GROUP_CONCAT(cg.id_group SEPARATOR \',\') AS group_ids 
+        $sql = 'SELECT c.*,
+                GROUP_CONCAT(cg.id_group SEPARATOR \',\') AS group_ids
                 FROM `' . _DB_PREFIX_ . 'customer` c
                 LEFT JOIN `' . _DB_PREFIX_ . 'customer_group` cg ON c.id_customer = cg.id_customer
                 WHERE 1';
+
+        if ($shopConstraint) {
+            if ($shopConstraint->getShopGroupId()) {
+                throw new InvalidShopConstraintException('Shop group constraint is not supported');
+            }
+
+            if ($shopConstraint->getShopId()) {
+                // filter by shop_id if its not all shops constraint
+                $sql .= sprintf(' AND c.id_shop = %d', $shopConstraint->getShopId()->getValue());
+            }
+        }
+
         $search_items = explode(' ', $query);
         $research_fields = ['c.id_customer', 'c.firstname', 'c.lastname', 'c.email'];
         if (Configuration::get('PS_B2B_ENABLE')) {
@@ -889,7 +905,10 @@ class CustomerCore extends ObjectModel
             $sql .= ' AND (' . implode(' OR ', $likes) . ') ';
         }
 
-        $sql .= Shop::addSqlRestriction(Shop::SHARE_CUSTOMER);
+        if (!$shopConstraint) {
+            // this is for backwards compatibility, it uses shop context if specific shopConstraint is not provided
+            $sql .= Shop::addSqlRestriction(Shop::SHARE_CUSTOMER);
+        }
 
         $sql .= ' GROUP BY c.id_customer ';
 
@@ -1022,7 +1041,9 @@ class CustomerCore extends ObjectModel
     public function updateGroup($list)
     {
         Hook::exec('actionCustomerBeforeUpdateGroup', ['id_customer' => $this->id, 'groups' => $list]);
-        if ($list && !empty($list)) {
+
+        // If some groups are provided, respect this. If not, automatically add the default group of the customer
+        if (!empty($list)) {
             $this->cleanGroups();
             $this->addGroups($list);
         } else {
@@ -1086,6 +1107,11 @@ class CustomerCore extends ObjectModel
         return self::$_customer_groups[$idCustomer];
     }
 
+    /**
+     * Get Groups of this Customer
+     *
+     * @return array|mixed
+     */
     public function getGroups()
     {
         return Customer::getGroupsStatic((int) $this->id);
@@ -1135,7 +1161,7 @@ class CustomerCore extends ObjectModel
     }
 
     /**
-     * Get current Country.
+     * Get current country or default country
      *
      * @param int $idCustomer
      * @param Cart|null $cart
@@ -1177,75 +1203,131 @@ class CustomerCore extends ObjectModel
      * @param int $idLang Language ID
      * @param string|null $password Password
      *
-     * @return bool
+     * @return bool Indicates if a process has been successful
      */
     public function transformToCustomer($idLang, $password = null)
     {
+        // If it's not a guest, wrong call
         if (!$this->isGuest()) {
             return false;
         }
+
+        $this->is_guest = false;
+
+        /** @var \PrestaShop\PrestaShop\Core\Crypto\Hashing $crypto */
+        $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
+
+        /*
+        * If this is an anonymous conversion and we want the customer to set his own password,
+        * we set a random one for now. If a password was provided, we check it's validity.
+        */
         if (empty($password)) {
-            $password = Tools::passwdGen(8, 'RANDOM');
+            $this->passwd = $crypto->hash(Tools::passwdGen(16, 'RANDOM'));
+        } else {
+            if (!Validate::isAcceptablePasswordLength($password) || !Validate::isAcceptablePasswordScore($password)) {
+                return false;
+            }
+            $this->passwd = $crypto->hash($password);
         }
-        if (!Validate::isPlaintextPassword($password)) {
+
+        /*
+        * Now, we need to update his group. The guest should have had a PS_GUEST_GROUP previously, but if
+        * not, no biggie, it's gonna be fixed now.
+        *
+        * We will remove all entries from customer_group table and add a customer group from configuration.
+        * We also need to set it as his default group.
+        */
+        $this->cleanGroups();
+        $this->addGroups([Configuration::get('PS_CUSTOMER_GROUP')]);
+        $this->id_default_group = (int) Configuration::get('PS_CUSTOMER_GROUP');
+        $this->stampResetPasswordToken();
+
+        if (!$this->update()) {
             return false;
         }
 
+        // If it's an anonymous conversion, we send him a link to set his new password.
+        // Otherwise, just a welcome email, if configured.
+        if (empty($password)) {
+            $this->sendWelcomeEmail($idLang, true);
+        } elseif (Configuration::get('PS_CUSTOMER_CREATION_EMAIL')) {
+            $this->sendWelcomeEmail($idLang);
+        }
+
+        return true;
+    }
+
+    /**
+     * Sends an informational email to the customer, to notify him that
+     * his account was created.
+     *
+     * This email can optionally contain a link to set his new password.
+     *
+     * @param int $idLang Language ID to send the email in
+     * @param bool $sendPasswordLink Should a template with a password reset link be used
+     *
+     * @return bool If the mail was sent successfully
+     */
+    public function sendWelcomeEmail(int $idLang, bool $sendPasswordLink = false)
+    {
+        // Use provided lang ID, or take the one from context
         $language = new Language($idLang);
         if (!Validate::isLoadedObject($language)) {
             $language = Context::getContext()->language;
         }
 
-        /** @var \PrestaShop\PrestaShop\Core\Crypto\Hashing $crypto */
-        $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
-        $this->is_guest = false;
-        $this->passwd = $crypto->hash($password);
-        $this->cleanGroups();
-        $this->addGroups([Configuration::get('PS_CUSTOMER_GROUP')]);
-        $this->id_default_group = (int) Configuration::get('PS_CUSTOMER_GROUP');
-        $this->stampResetPasswordToken();
-        if ($this->update()) {
-            $vars = [
-                '{firstname}' => $this->firstname,
-                '{lastname}' => $this->lastname,
-                '{email}' => $this->email,
-                '{url}' => Context::getContext()->link->getPageLink(
-                    'password',
-                    true,
-                    null,
-                    sprintf(
-                        'token=%s&id_customer=%s&reset_token=%s',
-                        $this->secure_key,
-                        (int) $this->id,
-                        $this->reset_password_token
-                    )
-                ),
-            ];
-            Mail::Send(
-                (int) $idLang,
-                'guest_to_customer',
-                Context::getContext()->getTranslator()->trans(
-                    'Your guest account has been transformed into a customer account',
-                    [],
-                    'Emails.Subject',
-                    $language->locale
-                ),
-                $vars,
-                $this->email,
-                $this->firstname . ' ' . $this->lastname,
-                null,
-                null,
-                null,
-                null,
-                _PS_MAIL_DIR_,
-                false,
-                (int) $this->id_shop
-            );
+        // Build basic email variables
+        $template = 'account';
+        $subject = Context::getContext()->getTranslator()->trans(
+            'Welcome!',
+            [],
+            'Emails.Subject',
+            $language->locale
+        );
+        $vars = [
+            '{firstname}' => $this->firstname,
+            '{lastname}' => $this->lastname,
+            '{email}' => $this->email,
+        ];
 
-            return true;
+        // If we are also sending a link to password, we will alter the template,
+        // change subject and add password URL to variables.
+        if ($sendPasswordLink) {
+            $template = 'guest_to_customer';
+            $subject = Context::getContext()->getTranslator()->trans(
+                'Your guest account has been transformed into a customer account',
+                [],
+                'Emails.Subject',
+                $language->locale
+            );
+            $vars['{url}'] = Context::getContext()->link->getPageLink(
+                'password',
+                true,
+                null,
+                sprintf(
+                    'token=%s&id_customer=%s&reset_token=%s',
+                    $this->secure_key,
+                    (int) $this->id,
+                    $this->reset_password_token
+                )
+            );
         }
 
-        return false;
+        return Mail::Send(
+            (int) $idLang,
+            $template,
+            $subject,
+            $vars,
+            $this->email,
+            $this->firstname . ' ' . $this->lastname,
+            null,
+            null,
+            null,
+            null,
+            _PS_MAIL_DIR_,
+            false,
+            (int) $this->id_shop
+        );
     }
 
     /**
@@ -1301,6 +1383,7 @@ class CustomerCore extends ObjectModel
     {
         Hook::exec('actionCustomerLogoutBefore', ['customer' => $this]);
 
+        // Cookie class will handle complete destroying of the cookie and sending it out to the client
         if (isset(Context::getContext()->cookie)) {
             Context::getContext()->cookie->logout();
         }
@@ -1320,6 +1403,7 @@ class CustomerCore extends ObjectModel
     {
         Hook::exec('actionCustomerLogoutBefore', ['customer' => $this]);
 
+        // Cookie class will remove all customer information from the cookie and update that cookie
         if (isset(Context::getContext()->cookie)) {
             Context::getContext()->cookie->mylogout();
         }
@@ -1332,7 +1416,7 @@ class CustomerCore extends ObjectModel
     /**
      * Get last empty Cart for this Customer, when last cart is not empty return false.
      *
-     * @param bool|true $withOrder
+     * @param bool|true $withOrder Only return a Cart that have been converted into an Order
      *
      * @return bool|int
      */
@@ -1349,11 +1433,13 @@ class CustomerCore extends ObjectModel
     }
 
     /**
-     * Validate controller.
+     * Validate controller and check password
      *
      * @param bool $htmlentities
      *
      * @return array
+     *
+     * @deprecated 8.1.0 The password check has been moved in controllers and this method is not called anywhere since 1.7.0
      */
     public function validateController($htmlentities = true)
     {
@@ -1457,7 +1543,7 @@ class CustomerCore extends ObjectModel
      */
     public function hasRecentResetPasswordToken()
     {
-        if (!$this->reset_password_token || $this->reset_password_token == '') {
+        if (!$this->reset_password_token) {
             return false;
         }
 
@@ -1474,7 +1560,7 @@ class CustomerCore extends ObjectModel
      */
     public function getValidResetPasswordToken()
     {
-        if (!$this->reset_password_token || $this->reset_password_token == '') {
+        if (!$this->reset_password_token) {
             return false;
         }
 

@@ -37,9 +37,9 @@ use PrestaShopBundle\Service\Routing\Router;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Translation\TranslatorInterface;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Defines form for address create/edit actions (Sell > Catalog > Brands & Suppliers)
@@ -50,16 +50,6 @@ class ManufacturerAddressType extends TranslatorAwareType
      * @var array
      */
     private $manufacturerChoices;
-
-    /**
-     * @var array
-     */
-    private $countryChoices;
-
-    /**
-     * @var array
-     */
-    private $countryChoicesAttributes;
 
     /**
      * @var ConfigurableFormChoiceProviderInterface
@@ -77,29 +67,25 @@ class ManufacturerAddressType extends TranslatorAwareType
     private $router;
 
     /**
+     * @param TranslatorInterface $translator
+     * @param array $locales
      * @param array $manufacturerChoices
-     * @param array $countryChoices
      * @param ConfigurableFormChoiceProviderInterface $statesChoiceProvider
      * @param int $contextCountryId
-     * @param TranslatorInterface $translator
-     * @param array $countryChoicesAttributes
+     * @param Router $router
      */
     public function __construct(
         TranslatorInterface $translator,
         array $locales,
         array $manufacturerChoices,
-        array $countryChoices,
         ConfigurableFormChoiceProviderInterface $statesChoiceProvider,
         $contextCountryId,
-        array $countryChoicesAttributes,
         Router $router
     ) {
         parent::__construct($translator, $locales);
         $this->manufacturerChoices = $manufacturerChoices;
-        $this->countryChoices = $countryChoices;
         $this->statesChoiceProvider = $statesChoiceProvider;
         $this->contextCountryId = $contextCountryId;
-        $this->countryChoicesAttributes = $countryChoicesAttributes;
         $this->router = $router;
     }
 
@@ -241,6 +227,7 @@ class ManufacturerAddressType extends TranslatorAwareType
             ])
             ->add('id_country', CountryChoiceType::class, [
                 'label' => $this->trans('Country', 'Admin.Global'),
+                'autocomplete' => true,
                 'attr' => [
                     'class' => 'js-manufacturer-country-select',
                     'data-states-url' => $this->router->generate('admin_country_states'),
@@ -264,6 +251,7 @@ class ManufacturerAddressType extends TranslatorAwareType
                         'id_country' => $countryId,
                     ]),
                 ],
+                'autocomplete' => true,
             ])
             ->add('dni', TextType::class, [
                 'label' => $this->trans('DNI', 'Admin.Global'),

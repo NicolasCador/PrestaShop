@@ -31,13 +31,14 @@
       <i class="material-icons">mail</i>
       {{ 'Email'|trans({}, 'Admin.Global') }}
     </h3>
-    <div class="card-block row">
-      <div class="card-text">
+    <div class="card-body">
+      <div class="form-wrapper">
         {{ form_row(emailConfigurationForm.send_emails_to) }}
         {{ form_row(emailConfigurationForm.mail_method) }}
         <div class="js-smtp-configuration{% if emailConfigurationForm.mail_method.vars.value != smtpMailMethod %} d-none{% endif %}">
           {{ form_widget(emailConfigurationForm.smtp_config) }}
         </div>
+        {{ form_row(emailConfigurationForm.subject_prefix) }}
         {{ form_row(emailConfigurationForm.mail_type) }}
         {{ form_row(emailConfigurationForm.log_emails) }}
         <div class="alert alert-info" role="alert">

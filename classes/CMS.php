@@ -29,7 +29,7 @@
  */
 class CMSCore extends ObjectModel
 {
-    /** @var string Name */
+    /** @var int|null */
     public $id;
     public $id_cms;
     public $head_seo_title;
@@ -163,7 +163,7 @@ class CMSCore extends ObjectModel
     }
 
     /**
-     * @param null $idLang
+     * @param int|null $idLang
      * @param bool $idBlock
      * @param bool $active
      *
@@ -306,22 +306,6 @@ class CMSCore extends ObjectModel
         }
 
         $sql->orderBy('position');
-
-        return Db::getInstance()->executeS($sql);
-    }
-
-    /**
-     * @param int $idCms
-     *
-     * @return array|false|mysqli_result|PDOStatement|resource|null
-     */
-    public static function getUrlRewriteInformations($idCms)
-    {
-        $sql = 'SELECT l.`id_lang`, c.`link_rewrite`
-				FROM `' . _DB_PREFIX_ . 'cms_lang` AS c
-				LEFT JOIN  `' . _DB_PREFIX_ . 'lang` AS l ON c.`id_lang` = l.`id_lang`
-				WHERE c.`id_cms` = ' . (int) $idCms . '
-				AND l.`active` = 1';
 
         return Db::getInstance()->executeS($sql);
     }

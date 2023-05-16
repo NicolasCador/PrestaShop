@@ -67,6 +67,8 @@ class ValidateTest extends TestCase
         yield [1, 'DESC'];
         yield [1, 'asc'];
         yield [1, 'desc'];
+        yield [1, 'random'];
+        yield [1, 'RANDOM'];
     }
 
     /**
@@ -87,7 +89,7 @@ class ValidateTest extends TestCase
             [true, 'john#doe@prestashop.com'],
             [false, ''],
             [false, 'john.doe@prestashop,com'],
-            [true, 'john.doe@prestashop'],
+            [false, 'john.doe@prestashop'],
             [true, 'john.doe@сайт.рф'],
             [true, 'john.doe@xn--80aswg.xn--p1ai'],
             [false, 'иван@prestashop.com'], // rfc6531 valid but not swift mailer compatible
@@ -122,6 +124,33 @@ class ValidateTest extends TestCase
             [false, null],
             [false, 'invalid'],
             [false, '666invalid'],
+        ];
+    }
+
+    /**
+     * @param bool $expected
+     * @param string $objectClassName
+     *
+     * @dataProvider isValidObjectClassNameDataProvider
+     */
+    public function testisValidObjectClassName(bool $expected, string $objectClassName): void
+    {
+        $this->assertSame($expected, $this->validate->isValidObjectClassName($objectClassName));
+    }
+
+    public function isValidObjectClassNameDataProvider(): array
+    {
+        return [
+            [true, 'MyClassName'],
+            [true, '_MyClassName'],
+            [true, '_My_Class_Name_'],
+            [true, '_MyClassName_'],
+            [true, '__My__Class__Name__'],
+            [false, ''],
+            [false, '666'],
+            [true, '_666'],
+            [true, '_6_6_6_'],
+            [true, '__'],
         ];
     }
 }

@@ -27,22 +27,22 @@
 namespace PrestaShopBundle\Controller\Admin;
 
 use Context;
-use PrestaShop\PrestaShop\Adapter\Module\AdminModuleDataProvider;
-use PrestaShop\PrestaShop\Core\Addon\AddonsCollection;
-use PrestaShop\PrestaShop\Core\Addon\Module\ModuleManagerBuilder;
+use PrestaShop\PrestaShop\Adapter\Tools;
 use PrestaShop\PrestaShop\Core\Domain\Notification\Command\UpdateEmployeeNotificationLastElementCommand;
 use PrestaShop\PrestaShop\Core\Domain\Notification\Query\GetNotificationLastElements;
 use PrestaShop\PrestaShop\Core\Domain\Notification\QueryResult\NotificationsResults;
 use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\AbstractGridDefinitionFactory;
 use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\FilterableGridDefinitionFactoryInterface;
 use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\GridDefinitionFactoryInterface;
+use PrestaShop\PrestaShop\Core\Grid\Position\Exception\PositionUpdateException;
+use PrestaShop\PrestaShop\Core\Grid\Position\GridPositionUpdaterInterface;
+use PrestaShop\PrestaShop\Core\Grid\Position\PositionDefinitionInterface;
+use PrestaShop\PrestaShop\Core\Grid\Position\PositionUpdateFactoryInterface;
 use PrestaShop\PrestaShop\Core\Kpi\Row\KpiRowInterface;
 use PrestaShopBundle\Security\Annotation\AdminSecurity;
-use PrestaShopBundle\Service\DataProvider\Admin\RecommendedModules;
 use PrestaShopBundle\Service\Grid\ControllerResponseBuilder;
 use PrestaShopBundle\Service\Grid\ResponseBuilder;
 use ReflectionClass;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -102,8 +102,6 @@ class CommonController extends FrameworkBundleAdminController
      * {% render controller('PrestaShopBundle\\Controller\\Admin\\CommonController::paginationAction',
      *   {'limit': limit, 'offset': offset, 'total': product_count, 'caller_parameters': pagination_parameters}) %}
      *
-     * @Template("@PrestaShop/Admin/Common/pagination.html.twig")
-     *
      * @param Request $request
      * @param int $limit
      * @param int $offset
@@ -111,9 +109,9 @@ class CommonController extends FrameworkBundleAdminController
      * @param string $view full|quicknav To change default template used to render the content
      * @param string $prefix Indicates the params prefix (eg: ?limit=10&offset=20 -> ?scope[limit]=10&scope[offset]=20)
      *
-     * @return array|Response
+     * @return Response
      */
-    public function paginationAction(Request $request, $limit = 10, $offset = 0, $total = 0, $view = 'full', $prefix = '')
+    public function paginationAction(Request $request, $limit = 10, $offset = 0, $total = 0, $view = 'full', $prefix = ''): Response
     {
         $offsetParam = empty($prefix) ? 'offset' : sprintf('%s[offset]', $prefix);
         $limitParam = empty($prefix) ? 'limit' : sprintf('%s[limit]', $prefix);
@@ -199,52 +197,7 @@ class CommonController extends FrameworkBundleAdminController
             return $this->render('@PrestaShop/Admin/Common/pagination_' . $view . '.html.twig', $vars);
         }
 
-        return $vars;
-    }
-
-    /**
-     * This will allow you to retrieve an HTML code with a list of recommended modules depending on the domain.
-     *
-     * @Template("@PrestaShop/Admin/Common/recommendedModules.html.twig")
-     *
-     * @param string $domain
-     * @param int $limit
-     * @param int $randomize
-     *
-     * @return array Template vars
-     */
-    public function recommendedModulesAction($domain, $limit = 0, $randomize = 0)
-    {
-        /** @var RecommendedModules $recommendedModules */
-        $recommendedModules = $this->get('prestashop.data_provider.modules.recommended');
-        $moduleIdList = $recommendedModules->getRecommendedModuleIdList($domain, ($randomize == 1));
-
-        /** @var AdminModuleDataProvider $modulesProvider */
-        $modulesProvider = $this->get('prestashop.core.admin.data_provider.module_interface');
-        $modulesRepository = ModuleManagerBuilder::getInstance()->buildRepository();
-
-        $modules = [];
-        foreach ($moduleIdList as $id) {
-            try {
-                $module = $modulesRepository->getModule($id);
-            } catch (\Exception $e) {
-                continue;
-            }
-            $modules[] = $module;
-        }
-
-        if ($randomize == 1) {
-            shuffle($modules);
-        }
-
-        $modules = $recommendedModules->filterInstalledAndBadModules($modules);
-        $collection = AddonsCollection::createFrom($modules);
-        $modules = $modulesProvider->generateAddonsUrls($collection)->toArray();
-
-        return [
-            'domain' => $domain,
-            'modules' => array_slice($modules, 0, $limit, true),
-        ];
+        return $this->render('@PrestaShop/Admin/Common/pagination.html.twig', $vars);
     }
 
     /**
@@ -258,7 +211,7 @@ class CommonController extends FrameworkBundleAdminController
      */
     public function renderSidebarAction($url, $title = '', $footer = '')
     {
-        $tools = $this->get('prestashop.adapter.tools');
+        $tools = $this->get(Tools::class);
 
         return $this->render('@PrestaShop/Admin/Common/_partials/_sidebar.html.twig', [
             'footer' => $tools->purifyHTML($footer),
@@ -401,5 +354,35 @@ class CommonController extends FrameworkBundleAdminController
             $redirectRoute,
             $redirectQueryParamsToKeep
         );
+    }
+
+    /**
+     * @AdminSecurity("is_granted('update', request.get('_legacy_controller'))")
+     *
+     * @param Request $request
+     *
+     * @return RedirectResponse
+     */
+    public function updatePositionAction(Request $request): RedirectResponse
+    {
+        $positionsData = [
+            'positions' => $request->request->get('positions'),
+        ];
+
+        /** @var PositionDefinitionInterface $positionDefinition */
+        $positionDefinition = $this->get($request->attributes->get('position_definition'));
+        $positionUpdateFactory = $this->get(PositionUpdateFactoryInterface::class);
+
+        try {
+            $positionUpdate = $positionUpdateFactory->buildPositionUpdate($positionsData, $positionDefinition);
+            $updater = $this->get(GridPositionUpdaterInterface::class);
+            $updater->update($positionUpdate);
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
+        } catch (PositionUpdateException $e) {
+            $errors = [$e->toArray()];
+            $this->flashErrors($errors);
+        }
+
+        return $this->redirectToRoute($request->attributes->get('redirect_route'));
     }
 }

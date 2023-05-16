@@ -32,12 +32,11 @@ const {$} = window;
 class ModuleLoader {
   constructor() {
     ModuleLoader.handleImport();
-    ModuleLoader.handleEvents();
   }
 
   static handleImport(): void {
     const moduleImport = $('#module-import');
-    moduleImport.click(() => {
+    moduleImport.on('click', () => {
       // @ts-ignore
       moduleImport.addClass('onclick', 250, validate);
     });
@@ -54,22 +53,6 @@ class ModuleLoader {
         moduleImport.removeClass('validate');
       }, 1250);
     }
-  }
-
-  static handleEvents(): void {
-    $('body').on(
-      'click',
-      'a.module-read-more-grid-btn, a.module-read-more-list-btn',
-      (event) => {
-        event.preventDefault();
-        const modulePoppin = $(event.target).data('target');
-
-        $.get(event.target.href, (data) => {
-          $(modulePoppin).html(data);
-          $(modulePoppin).modal();
-        });
-      },
-    );
   }
 }
 

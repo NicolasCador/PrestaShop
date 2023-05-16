@@ -26,6 +26,7 @@
 
 namespace PrestaShop\PrestaShop\Adapter\Presenter\Cart;
 
+use Cache;
 use Cart;
 use CartRule;
 use Configuration;
@@ -42,7 +43,7 @@ use PrestaShop\PrestaShop\Adapter\Product\ProductColorsRetriever;
 use PrestaShop\PrestaShop\Core\Product\ProductPresentationSettings;
 use Product;
 use ProductAssembler;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use TaxConfiguration;
 use Tools;
 
@@ -154,13 +155,11 @@ class CartPresenter implements PresenterInterface
         if ($this->includeTaxes()) {
             $rawProduct['price_amount'] = $rawProduct['price_wt'];
             $rawProduct['price'] = $this->priceFormatter->format($rawProduct['price_wt']);
+            $rawProduct['unit_price'] = $rawProduct['unit_price_tax_included'];
         } else {
             $rawProduct['price_amount'] = $rawProduct['price'];
             $rawProduct['price'] = $rawProduct['price_tax_exc'] = $this->priceFormatter->format($rawProduct['price']);
-        }
-
-        if ($rawProduct['price_amount'] && $rawProduct['unit_price_ratio'] > 0) {
-            $rawProduct['unit_price'] = $rawProduct['price_amount'] / $rawProduct['unit_price_ratio'];
+            $rawProduct['unit_price'] = $rawProduct['unit_price_tax_excluded'];
         }
 
         $rawProduct['total'] = $this->priceFormatter->format(
@@ -317,6 +316,10 @@ class CartPresenter implements PresenterInterface
      */
     public function present($cart, $shouldSeparateGifts = false)
     {
+        $cache_id = 'presentedCart_' . (int) $shouldSeparateGifts;
+        if (Cache::isStored($cache_id)) {
+            return Cache::retrieve($cache_id);
+        }
         if (!is_a($cart, 'Cart')) {
             throw new \Exception('CartPresenter can only present instance of Cart');
         }
@@ -492,6 +495,8 @@ class CartPresenter implements PresenterInterface
             ['presentedCart' => &$result]
         );
 
+        Cache::store($cache_id, $result);
+
         return $result;
     }
 
@@ -547,8 +552,9 @@ class CartPresenter implements PresenterInterface
         $cartVouchers = $cart->getCartRules();
         $vouchers = [];
 
-        $cartHasTax = null === $cart->id ? false : $cart::getTaxesAverageUsed($cart);
+        $cartHasTax = null === $cart->id ? false : $cart->getAverageProductsTaxRate() * 100;
         $freeShippingAlreadySet = false;
+        /** @var array{id_cart_rule:int, name: string, code: string, reduction_percent: float, reduction_currency: int, free_shipping: bool, reduction_tax: bool, reduction_amount:float, value_real:float|int|string, value_tax_exc:float|int|string} $cartVoucher */
         foreach ($cartVouchers as $cartVoucher) {
             $vouchers[$cartVoucher['id_cart_rule']]['id_cart_rule'] = $cartVoucher['id_cart_rule'];
             $vouchers[$cartVoucher['id_cart_rule']]['name'] = $cartVoucher['name'];

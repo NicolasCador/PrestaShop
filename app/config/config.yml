@@ -1,6 +1,5 @@
 imports:
   - { resource: set_parameters.php }
-  - { resource: security.yml }
   - { resource: services.yml }
   - { resource: addons/*.yml }
   - { resource: doctrine.yml }
@@ -15,26 +14,21 @@ parameters:
   prestashop_views: "%kernel.root_dir%/../src/PrestaShopBundle/Resources/views"
   admin_page: "%prestashop_views%/Admin"
   env(PS_LOG_OUTPUT): "%kernel.logs_dir%/%kernel.environment%.log"
+  env(PS_LOG_MAX_FILES): 30
   mail_themes_uri: "/mails/themes"
   mail_themes_dir: "%kernel.project_dir%%mail_themes_uri%"
   modules_translation_paths: [ ]
+  api_base_path: !php/const PrestaShopBundle\Api\Api::API_BASE_PATH
 
 # Autowires Core controllers
 services:
-  PrestaShopBundle\Controller\:
-    resource: "%kernel.root_dir%/../src/PrestaShopBundle/Controller/*"
-    exclude: "%kernel.root_dir%/../src/PrestaShopBundle/Controller/Api"
-    tags:
-      - 'controller.service_arguments'
-      - !php/const PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController::PRESTASHOP_CORE_CONTROLLERS_TAG
-
   logger:
     alias: monolog.logger
     public: true
 
 framework:
   assets:
-    version: !php/const \AppKernel::VERSION
+    version: !php/const PrestaShop\PrestaShop\Core\Version::VERSION
 
   # esi: ~
   secret: "%secret%"
@@ -54,6 +48,7 @@ framework:
     handler_id: ~
   fragments: ~
   http_method_override: true
+  http_client: ~
   cache:
     pools:
       '%cache.driver%':
@@ -63,7 +58,8 @@ framework:
 monolog:
   handlers:
     main:
-      type: stream
+      type: rotating_file
+      max_files: '%env(PS_LOG_MAX_FILES)%'
       path: '%env(PS_LOG_OUTPUT)%'
       level: notice
     legacy:
@@ -92,6 +88,8 @@ twig:
   globals:
     webpack_server: false
     multistore_field_prefix: !php/const PrestaShopBundle\Service\Form\MultistoreCheckboxEnabler::MULTISTORE_FIELD_PREFIX
+    modify_all_shops_prefix: !php/const PrestaShopBundle\Form\Extension\ModifyAllShopsExtension::MODIFY_ALL_SHOPS_PREFIX
+    disabling_switch_prefix: !php/const PrestaShopBundle\Form\Extension\DisablingSwitchExtension::FIELD_PREFIX
 
 # Swiftmailer Configuration
 swiftmailer:
@@ -101,26 +99,12 @@ swiftmailer:
   password: "%mailer_password%"
   spool: { type: memory }
 
-# Guzzle configuration
-eight_points_guzzle:
-  logging: "%kernel.debug%"
-  clients:
-    addons_api:
-      base_url: "https://api-addons.prestashop.com"
-      options:  # you can specify the options as in http://docs.guzzlephp.org/en/latest/quickstart.html#creating-a-client
-        timeout: "5.0"
-        headers:
-          Accept: "application/json"
-        curl:
-          forbid_reuse: true
-          fresh_connect: true
+api_platform:
+  title: PrestaShop API
+  version: 1.0.0
+  enable_entrypoint: false
+  mapping:
+    paths:
+      - '%kernel.project_dir%/app/config/api_platform'
 
-prestashop:
-  addons:
-    api_client:
-      ttl: 7200  # 2h
-      # verify_ssl: ~ # Bundle CA by default, declaring "addons.api_client.verify_ssl" parameter overrides its usage
-
-sensio_framework_extra:
-  router:
-    annotations: false
+  metadata_backward_compatibility_layer: false

@@ -27,6 +27,7 @@
 namespace Tests\Integration\Behaviour\Features\Context\Configuration;
 
 use Configuration;
+use Country;
 use Tests\Integration\Behaviour\Features\Context\SharedStorage;
 use Tests\Integration\Behaviour\Features\Context\Util\PrimitiveUtils;
 use Tools;
@@ -42,7 +43,7 @@ class CommonConfigurationFeatureContext extends AbstractConfigurationFeatureCont
             Tools::$round_mode = null;
         }
         if ($index === 'PS_ECOTAX_TAX_RULES_GROUP_ID') {
-            $value = (int) SharedStorage::getStorage()->get($value);
+            $value = $value === 'none' ? 0 : (int) SharedStorage::getStorage()->get($value);
         }
         $this->setConfiguration($index, $value);
     }
@@ -99,5 +100,13 @@ class CommonConfigurationFeatureContext extends AbstractConfigurationFeatureCont
             'PS_SEARCH_INDEXATION',
             $status
         );
+    }
+
+    /**
+     * @Given /^shop configuration for default shop is set to (.+)$/
+     */
+    public function shopConfigurationSetDefaultCountry(string $isoCode): void
+    {
+        $this->setConfiguration('PS_COUNTRY_DEFAULT', Country::getByIso($isoCode));
     }
 }

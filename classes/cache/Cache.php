@@ -28,12 +28,12 @@ abstract class CacheCore
     /**
      * Name of keys index.
      */
-    const KEYS_NAME = '__keys__';
+    public const KEYS_NAME = '__keys__';
 
     /**
      * Name of SQL cache index.
      */
-    const SQL_TABLES_NAME = 'tablesCached';
+    public const SQL_TABLES_NAME = 'tablesCached';
 
     /**
      * Store the number of time a query is fetched from the cache.
@@ -505,7 +505,7 @@ abstract class CacheCore
             $tableBuffer = array_slice(
                 $this->sql_tables_cached[$table],
                 0,
-                ceil($this->maxCachedObjectsByTable / 3),
+                (int) ceil($this->maxCachedObjectsByTable / 3),
                 true
             );
             foreach (array_keys($tableBuffer) as $fs_key) {

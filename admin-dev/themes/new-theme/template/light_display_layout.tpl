@@ -26,10 +26,11 @@
 <html lang="{$iso}">
 <head>
   {$header}
+  <link href="{$baseAdminUrl}themes/new-theme/public/light_theme.css" rel="stylesheet" type="text/css">
 </head>
 
 <body
-  class="lang-{$iso_user}{if $lang_is_rtl} lang-rtl{/if} {$smarty.get.controller|escape|strtolower}{if $collapse_menu} page-sidebar-closed{/if}"
+  class="lang-{$iso_user}{if $lang_is_rtl} lang-rtl{/if} {$controller_name|escape|strtolower}{if $collapse_menu} page-sidebar-closed{/if}{if !empty($debug_mode)} developer-mode{/if}"
   {if isset($js_router_metadata.base_url)}data-base-url="{$js_router_metadata.base_url}"{/if}
   {if isset($js_router_metadata.token)}data-token="{$js_router_metadata.token}"{/if}
 >

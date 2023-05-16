@@ -27,10 +27,15 @@ use PrestaShop\PrestaShop\Adapter\Presenter\Order\OrderPresenter;
 
 class HistoryControllerCore extends FrontController
 {
+    /** @var bool */
     public $auth = true;
+    /** @var string */
     public $php_self = 'history';
+    /** @var string */
     public $authRedirection = 'history';
+    /** @var bool */
     public $ssl = true;
+    /** @var OrderPresenter|null */
     public $order_presenter;
 
     /**
@@ -52,14 +57,8 @@ class HistoryControllerCore extends FrontController
             $this->warning[] = $this->trans('If you have just placed an order, it may take a few minutes for it to be validated. Please refresh this page if your order is missing.', [], 'Shop.Notifications.Warning');
         }
 
-        $orders = $this->getTemplateVarOrders();
-
-        if (count($orders) <= 0) {
-            $this->warning[] = $this->trans('You have not placed any orders.', [], 'Shop.Notifications.Warning');
-        }
-
         $this->context->smarty->assign([
-            'orders' => $orders,
+            'orders' => $this->getTemplateVarOrders(),
         ]);
 
         parent::initContent();

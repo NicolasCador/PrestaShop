@@ -24,18 +24,22 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 
+use PrestaShop\Autoload\PrestashopAutoload;
 use PrestaShop\PrestaShop\Adapter\ContainerFinder;
 use PrestaShop\PrestaShop\Adapter\LegacyLogger;
 use PrestaShop\PrestaShop\Adapter\Module\ModuleDataProvider;
+use PrestaShop\PrestaShop\Adapter\Module\Repository\ModuleRepository;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PrestaShop\PrestaShop\Core\Exception\ContainerNotFoundException;
 use PrestaShop\PrestaShop\Core\Foundation\Filesystem\FileSystem;
-use PrestaShop\PrestaShop\Core\Module\ModuleInterface;
+use PrestaShop\PrestaShop\Core\Module\Legacy\ModuleInterface;
 use PrestaShop\PrestaShop\Core\Module\WidgetInterface;
+use PrestaShop\PrestaShop\Core\Security\Permission;
 use PrestaShop\TranslationToolsBundle\Translation\Helper\DomainHelper;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Exception\ServiceCircularReferenceException;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
+use Symfony\Component\Filesystem\Filesystem as SfFileSystem;
 use Symfony\Component\Finder\Finder;
 
 abstract class ModuleCore implements ModuleInterface
@@ -72,7 +76,7 @@ abstract class ModuleCore implements ModuleInterface
     /**
      * @var string Text to display when ask for confirmation on uninstall action
      */
-    public $confirmUninstall;
+    public $confirmUninstall = '';
 
     /** @var string author of the module */
     public $author;
@@ -210,7 +214,7 @@ abstract class ModuleCore implements ModuleInterface
     /** @var bool Random session for modules perfs logs */
     public static $_log_modules_perfs_session = null;
 
-    /** @var \Symfony\Component\DependencyInjection\ContainerInterface */
+    /** @var ContainerInterface */
     private $container;
 
     /** @var array|null used to cache module ids */
@@ -219,11 +223,9 @@ abstract class ModuleCore implements ModuleInterface
     /** @var int Defines the multistore compatibility level of the module */
     public $multistoreCompatibility = self::MULTISTORE_COMPATIBILITY_UNKNOWN;
 
-    const CACHE_FILE_MODULES_LIST = '/config/xml/modules_list.xml';
+    public const CACHE_FILE_MODULES_LIST = '/config/xml/modules_list.xml';
 
-    const CACHE_FILE_TAB_MODULES_LIST = '/config/xml/tab_modules_list.xml';
-
-    const CACHE_FILE_ALL_COUNTRY_MODULES_LIST = '/config/xml/modules_native_addons.xml';
+    public const CACHE_FILE_ALL_COUNTRY_MODULES_LIST = '/config/xml/modules_native_addons.xml';
 
     public const MULTISTORE_COMPATIBILITY_NO = -20;
     public const MULTISTORE_COMPATIBILITY_NOT_CONCERNED = -10;
@@ -295,28 +297,24 @@ abstract class ModuleCore implements ModuleInterface
             Tools::displayParameterAsDeprecated('name');
         }
 
-        if (isset($this->ps_versions_compliancy) && !isset($this->ps_versions_compliancy['min'])) {
+        if (!isset($this->ps_versions_compliancy['min'])) {
             $this->ps_versions_compliancy['min'] = '1.4.0.0';
         }
 
-        if (isset($this->ps_versions_compliancy) && !isset($this->ps_versions_compliancy['max'])) {
+        if (!isset($this->ps_versions_compliancy['max'])) {
             $this->ps_versions_compliancy['max'] = _PS_VERSION_;
         }
 
-        if (strlen($this->ps_versions_compliancy['min']) == 3) {
-            $this->ps_versions_compliancy['min'] .= '.0.0';
-        }
+        $minParts = explode('.', $this->ps_versions_compliancy['min']);
+        $maxParts = explode('.', $this->ps_versions_compliancy['max']);
 
-        if (strlen($this->ps_versions_compliancy['min']) == 5) {
-            $this->ps_versions_compliancy['min'] .= '.0';
+        // Since v8, we don't pad versions
+        if ((int) current($minParts) < 8) {
+            $this->ps_versions_compliancy['min'] = str_pad($this->ps_versions_compliancy['min'], 7, '.0');
         }
-
-        if (strlen($this->ps_versions_compliancy['max']) == 5) {
-            $this->ps_versions_compliancy['max'] .= '.999';
-        }
-
-        if (strlen($this->ps_versions_compliancy['max']) == 3) {
-            $this->ps_versions_compliancy['max'] .= '.999.999';
+        if ((int) current($maxParts) < 8) {
+            $padLength = strlen($this->ps_versions_compliancy['max']) + (4 - count($maxParts)) * 4;
+            $this->ps_versions_compliancy['max'] = str_pad($this->ps_versions_compliancy['max'], $padLength, '.999');
         }
 
         // Load context and smarty
@@ -420,7 +418,11 @@ abstract class ModuleCore implements ModuleInterface
         }
 
         // Install module and retrieve the installation id
-        $result = Db::getInstance()->insert($this->table, ['name' => $this->name, 'active' => 1, 'version' => $this->version]);
+        $result = Db::getInstance()->insert($this->table, [
+            'name' => $this->name,
+            'active' => 1,
+            'version' => $this->version,
+        ]);
         if (!$result) {
             $this->_errors[] = Context::getContext()->getTranslator()->trans('Technical error: PrestaShop could not install this module.', [], 'Admin.Modules.Notification');
             if (method_exists($this, 'uninstallTabs')) {
@@ -442,7 +444,7 @@ abstract class ModuleCore implements ModuleInterface
 
         // Permissions management
         foreach (['CREATE', 'READ', 'UPDATE', 'DELETE'] as $action) {
-            $slug = 'ROLE_MOD_MODULE_' . strtoupper($this->name) . '_' . $action;
+            $slug = Permission::PREFIX_MODULE . strtoupper($this->name) . '_' . $action;
 
             Db::getInstance()->execute(
                 'INSERT INTO `' . _DB_PREFIX_ . 'authorization_role` (`slug`) VALUES ("' . $slug . '")'
@@ -509,22 +511,25 @@ abstract class ModuleCore implements ModuleInterface
     {
         // Store information if a module has been upgraded (memory optimization)
         if ($upgrade_detail['available_upgrade']) {
+            $translator = Context::getContext()->getTranslator();
             if ($upgrade_detail['success']) {
-                $this->_confirmations[] = Context::getContext()->getTranslator()->trans('Current version: %s', [$this->version], 'Admin.Modules.Notification');
-                $this->_confirmations[] = Context::getContext()->getTranslator()->trans('%d file upgrade applied', [$upgrade_detail['number_upgraded']], 'Admin.Modules.Notification');
-            } else {
-                if (!$upgrade_detail['number_upgraded']) {
-                    $this->_errors[] = Context::getContext()->getTranslator()->trans('No upgrade has been applied', [], 'Admin.Modules.Notification');
-                } else {
-                    $this->_errors[] = Context::getContext()->getTranslator()->trans('Upgraded from: %s to %s', [$upgrade_detail['upgraded_from'], $upgrade_detail['upgraded_to']], 'Admin.Modules.Notification');
-                    $this->_errors[] = Context::getContext()->getTranslator()->trans('%d upgrade left', [$upgrade_detail['number_upgrade_left']], 'Admin.Modules.Notification');
-                }
+                $this->_confirmations[] = $translator->trans('Current version: %s', [$this->version], 'Admin.Modules.Notification');
+                $this->_confirmations[] = $translator->trans('%d file update applied', [$upgrade_detail['number_upgraded']], 'Admin.Modules.Notification');
 
-                if (isset($upgrade_detail['duplicate']) && $upgrade_detail['duplicate']) {
-                    $this->_errors[] = Context::getContext()->getTranslator()->trans('Module %s cannot be upgraded this time: please refresh this page to update it.', [$this->name], 'Admin.Modules.Notification');
-                } else {
-                    $this->_errors[] = Context::getContext()->getTranslator()->trans('To prevent any problem, this module has been turned off', [], 'Admin.Modules.Notification');
-                }
+                return;
+            }
+
+            if (!$upgrade_detail['number_upgraded']) {
+                $this->_errors[] = $translator->trans('No update has been applied', [], 'Admin.Modules.Notification');
+            } else {
+                $this->_errors[] = $translator->trans('Updated from: %s to %s', [$upgrade_detail['upgraded_from'], $upgrade_detail['upgraded_to']], 'Admin.Modules.Notification');
+                $this->_errors[] = $translator->trans('%d update left', [$upgrade_detail['number_upgrade_left']], 'Admin.Modules.Notification');
+            }
+
+            if (isset($upgrade_detail['duplicate']) && $upgrade_detail['duplicate']) {
+                $this->_errors[] = $translator->trans('Module %s cannot be updated this time: please refresh this page to update it.', [$this->name], 'Admin.Modules.Notification');
+            } else {
+                $this->_errors[] = $translator->trans('To prevent any problem, this module has been turned off', [], 'Admin.Modules.Notification');
             }
         }
     }
@@ -769,7 +774,7 @@ abstract class ModuleCore implements ModuleInterface
         $this->disable(true);
 
         // Delete permissions module access
-        $roles = Db::getInstance()->executeS('SELECT `id_authorization_role` FROM `' . _DB_PREFIX_ . 'authorization_role` WHERE `slug` LIKE "ROLE_MOD_MODULE_' . strtoupper($this->name) . '_%"');
+        $roles = Db::getInstance()->executeS('SELECT `id_authorization_role` FROM `' . _DB_PREFIX_ . 'authorization_role` WHERE `slug` LIKE "' . Permission::PREFIX_MODULE . strtoupper($this->name) . '_%"');
 
         if (!empty($roles)) {
             foreach ($roles as $role) {
@@ -847,7 +852,7 @@ abstract class ModuleCore implements ModuleInterface
 
         // Store the results in an array
         $items = [];
-        if ($results = Db::getInstance($sql)->executeS($sql)) {
+        if ($results = Db::getInstance()->executeS($sql)) {
             foreach ($results as $row) {
                 $items[] = $row['id_shop'];
             }
@@ -876,6 +881,9 @@ abstract class ModuleCore implements ModuleInterface
                 $moduleActivated = true;
             }
         }
+
+        // set active to 1 in the module table
+        Db::getInstance()->update('module', ['active' => 1], 'id_module = ' . (int) $this->id);
 
         if ($moduleActivated) {
             $this->loadBuiltInTranslations();
@@ -979,50 +987,22 @@ abstract class ModuleCore implements ModuleInterface
         }
 
         // Disable module for all shops
-        $sql = 'DELETE FROM `' . _DB_PREFIX_ . 'module_shop` WHERE `id_module` = ' . (int) $this->id . ' ' . ((!$force_all) ? ' AND `id_shop` IN(' . implode(', ', Shop::getContextListShopID()) . ')' : '');
+        $result &= Db::getInstance()->delete('module_shop', '`id_module` = ' . (int) $this->id);
 
-        return $result && Db::getInstance()->execute($sql);
+        // if module has no more shop associations, set module.active = 0
+        if (!$this->hasShopAssociations()) {
+            $result &= Db::getInstance()->update('module', ['active' => 0], 'id_module = ' . (int) $this->id);
+        }
+
+        return (bool) $result;
     }
 
-    /**
-     * Display flags in forms for translations.
-     *
-     * @deprecated since 1.6.0.10
-     *
-     * @param array $languages All languages available
-     * @param int $default_language Default language id
-     * @param string $ids Multilingual div ids in form
-     * @param string $id Current div id]
-     * @param bool $return define the return way : false for a display, true for a return
-     * @param bool $use_vars_instead_of_ids use an js vars instead of ids seperate by "¤"
-     *
-     * @return bool|string|void
-     */
-    public function displayFlags($languages, $default_language, $ids, $id, $return = false, $use_vars_instead_of_ids = false)
+    public function hasShopAssociations(): bool
     {
-        if (count($languages) == 1) {
-            return false;
-        }
+        $sql = "SELECT m.id_module FROM %smodule m INNER JOIN %smodule_shop ms ON ms.id_module = m.id_module WHERE m.id_module = '%s'";
+        $result = Db::getInstance()->getRow(sprintf($sql, _DB_PREFIX_, _DB_PREFIX_, (int) $this->id));
 
-        $output = '
-        <div class="displayed_flag">
-            <img src="../img/l/' . $default_language . '.jpg" class="pointer" id="language_current_' . $id . '" onclick="toggleLanguageFlags(this);" alt="" />
-        </div>
-        <div id="languages_' . $id . '" class="language_flags">
-            ' . $this->getTranslator()->trans('Choose language:', [], 'Admin.Actions') . '<br /><br />';
-        foreach ($languages as $language) {
-            if ($use_vars_instead_of_ids) {
-                $output .= '<img src="../img/l/' . (int) $language['id_lang'] . '.jpg" class="pointer" alt="' . $language['name'] . '" title="' . $language['name'] . '" onclick="changeLanguage(\'' . $id . '\', ' . $ids . ', ' . $language['id_lang'] . ', \'' . $language['iso_code'] . '\');" /> ';
-            } else {
-                $output .= '<img src="../img/l/' . (int) $language['id_lang'] . '.jpg" class="pointer" alt="' . $language['name'] . '" title="' . $language['name'] . '" onclick="changeLanguage(\'' . $id . '\', \'' . $ids . '\', ' . $language['id_lang'] . ', \'' . $language['iso_code'] . '\');" /> ';
-            }
-        }
-        $output .= '</div>';
-
-        if ($return) {
-            return $output;
-        }
-        echo $output;
+        return isset($result['id_module']);
     }
 
     /**
@@ -1172,7 +1152,6 @@ abstract class ModuleCore implements ModuleInterface
     public static function getInstanceByName($module_name)
     {
         if (!Validate::isModuleName($module_name)) {
-            /* @phpstan-ignore-next-line */
             if (!_PS_MODE_DEV_) {
                 return false;
             }
@@ -1318,7 +1297,7 @@ abstract class ModuleCore implements ModuleInterface
      *
      * @param bool $use_config in order to use config.xml file in module dir
      *
-     * @return array<\stdClass> Modules
+     * @return array<StdClass> Modules
      */
     public static function getModulesOnDisk($use_config = false, $id_employee = false)
     {
@@ -1394,7 +1373,7 @@ abstract class ModuleCore implements ModuleInterface
                         }
                     }
 
-                    $item = new \stdClass();
+                    $item = new StdClass();
                     $item->id = 0;
                     $item->warning = '';
 
@@ -1450,7 +1429,7 @@ abstract class ModuleCore implements ModuleInterface
                     try {
                         $tmp_module = ServiceLocator::get($module);
 
-                        $item = new \stdClass();
+                        $item = new StdClass();
 
                         $item->id = (int) $tmp_module->id;
                         $item->warning = $tmp_module->warning;
@@ -1458,7 +1437,7 @@ abstract class ModuleCore implements ModuleInterface
                         $item->version = $tmp_module->version;
                         $item->tab = $tmp_module->tab;
                         $item->displayName = $tmp_module->displayName;
-                        $item->description = stripslashes($tmp_module->description);
+                        $item->description = isset($tmp_module->description) ? stripslashes($tmp_module->description) : null;
                         $item->author = $tmp_module->author;
                         $item->author_uri = (isset($tmp_module->author_uri) && $tmp_module->author_uri) ? $tmp_module->author_uri : false;
                         $item->limited_countries = $tmp_module->limited_countries;
@@ -1469,7 +1448,7 @@ abstract class ModuleCore implements ModuleInterface
                         $item->currencies = isset($tmp_module->currencies) ? $tmp_module->currencies : null;
                         $item->currencies_mode = isset($tmp_module->currencies_mode) ? $tmp_module->currencies_mode : null;
                         $item->confirmUninstall = isset($tmp_module->confirmUninstall) ? html_entity_decode($tmp_module->confirmUninstall) : null;
-                        $item->description_full = stripslashes($tmp_module->description_full);
+                        $item->description_full = isset($tmp_module->description_full) ? stripslashes($tmp_module->description_full) : null;
                         $item->additional_description = isset($tmp_module->additional_description) ? stripslashes($tmp_module->additional_description) : null;
                         $item->compatibility = isset($tmp_module->compatibility) ? (array) $tmp_module->compatibility : null;
                         $item->nb_rates = isset($tmp_module->nb_rates) ? (array) $tmp_module->nb_rates : null;
@@ -1569,7 +1548,7 @@ abstract class ModuleCore implements ModuleInterface
     }
 
     /**
-     * @param \StdClass $modaddons Addons Module object, provided by XML stream
+     * @param StdClass $modaddons Addons Module object, provided by XML stream
      *
      * @return string|null
      */
@@ -1630,12 +1609,28 @@ abstract class ModuleCore implements ModuleInterface
      */
     public static function getNonNativeModuleList()
     {
-        return false;
+        return self::getModuleRepository()->getNonNativeModules();
     }
 
+    /**
+     * @return array<string>
+     */
     public static function getNativeModuleList()
     {
-        return false;
+        return self::getModuleRepository()->getNativeModules();
+    }
+
+    /**
+     * @return ModuleRepository
+     *
+     * @throws ContainerNotFoundException
+     */
+    private static function getModuleRepository(): ModuleRepository
+    {
+        $finder = new ContainerFinder(Context::getContext());
+        $sfContainer = $finder->getContainer();
+
+        return $sfContainer->get('prestashop.adapter.module.repository.module_repository');
     }
 
     /**
@@ -2176,7 +2171,6 @@ abstract class ModuleCore implements ModuleInterface
     public function display($file, $template, $cache_id = null, $compile_id = null)
     {
         if (($overloaded = Module::_isTemplateOverloadedStatic(basename($file, '.php'), $template)) === null) {
-            /* @phpstan-ignore-next-line */
             return Context::getContext()->getTranslator()->trans('No template found for module', [], 'Admin.Modules.Notification') . ' ' . basename($file, '.php') . (_PS_MODE_DEV_ ? ' (' . $template . ')' : '');
         } else {
             $this->smarty->assign([
@@ -2390,7 +2384,7 @@ abstract class ModuleCore implements ModuleInterface
     protected function _generateConfigXml()
     {
         $author_uri = '';
-        if (isset($this->author_uri) && $this->author_uri) {
+        if ($this->author_uri) {
             $author_uri = '<author_uri><![CDATA[' . Tools::htmlentitiesUTF8($this->author_uri) . ']]></author_uri>';
         }
 
@@ -2402,9 +2396,9 @@ abstract class ModuleCore implements ModuleInterface
     <description><![CDATA[' . str_replace('&amp;', '&', Tools::htmlentitiesUTF8($this->description)) . ']]></description>
     <author><![CDATA[' . str_replace('&amp;', '&', Tools::htmlentitiesUTF8($this->author)) . ']]></author>'
         . $author_uri . '
-    <tab><![CDATA[' . Tools::htmlentitiesUTF8($this->tab) . ']]></tab>' . (isset($this->confirmUninstall) ? "\n\t" . '<confirmUninstall><![CDATA[' . $this->confirmUninstall . ']]></confirmUninstall>' : '') . '
+    <tab><![CDATA[' . Tools::htmlentitiesUTF8($this->tab) . ']]></tab>' . (!empty($this->confirmUninstall) ? "\n\t" . '<confirmUninstall><![CDATA[' . $this->confirmUninstall . ']]></confirmUninstall>' : '') . '
     <is_configurable>' . (isset($this->is_configurable) ? (int) $this->is_configurable : 0) . '</is_configurable>
-    <need_instance>' . (int) $this->need_instance . '</need_instance>' . (isset($this->limited_countries) ? "\n\t" . '<limited_countries>' . (count($this->limited_countries) == 1 ? $this->limited_countries[0] : '') . '</limited_countries>' : '') . '
+    <need_instance>' . (int) $this->need_instance . '</need_instance>' . (!empty($this->limited_countries) ? "\n\t" . '<limited_countries>' . (count($this->limited_countries) == 1 ? $this->limited_countries[0] : '') . '</limited_countries>' : '') . '
 </module>';
         if (is_writable(_PS_MODULE_DIR_ . $this->name . '/')) {
             $iso = substr(Context::getContext()->language->iso_code, 0, 2);
@@ -2429,7 +2423,9 @@ abstract class ModuleCore implements ModuleInterface
     public function isHookableOn($hook_name)
     {
         if ($this instanceof WidgetInterface) {
-            return Hook::isDisplayHookName($hook_name);
+            if (Hook::isDisplayHookName($hook_name)) {
+                return true;
+            }
         }
 
         return is_callable([$this, 'hook' . ucfirst($hook_name)]);
@@ -2443,12 +2439,22 @@ abstract class ModuleCore implements ModuleInterface
     public static function getModulesAccessesByIdProfile($idProfile)
     {
         if (empty(static::$cache_modules_roles)) {
-            static::warmupRolesCache();
+            self::warmupRolesCache();
         }
 
         $roles = static::$cache_lgc_access;
 
-        $profileRoles = Db::getInstance()->executeS('
+        if ($idProfile == _PS_ADMIN_PROFILE_) {
+            foreach ($roles as $moduleName => $permissions) {
+                $roles[$moduleName] = array_merge($permissions, [
+                    'add' => '1',
+                    'view' => '1',
+                    'configure' => '1',
+                    'uninstall' => '1',
+                ]);
+            }
+        } else {
+            $profileRoles = Db::getInstance()->executeS('
             SELECT `slug`,
                 `slug` LIKE "%CREATE" as "add",
                 `slug` LIKE "%READ" as "view",
@@ -2456,20 +2462,21 @@ abstract class ModuleCore implements ModuleInterface
                 `slug` LIKE "%DELETE" as "uninstall"
             FROM `' . _DB_PREFIX_ . 'authorization_role` a
             LEFT JOIN `' . _DB_PREFIX_ . 'module_access` j ON j.id_authorization_role = a.id_authorization_role
-            WHERE `slug` LIKE "ROLE_MOD_MODULE_%"
+            WHERE `slug` LIKE "' . Permission::PREFIX_MODULE . '%"
             AND j.id_profile = "' . (int) $idProfile . '"
             ORDER BY a.slug
         ');
 
-        foreach ($profileRoles as $role) {
-            preg_match(
-                '/ROLE_MOD_MODULE_(?P<moduleName>[A-Z0-9_]+)_(?P<auth>[A-Z]+)/',
-                $role['slug'],
-                $matches
-            );
+            foreach ($profileRoles as $role) {
+                preg_match(
+                    '/' . Permission::PREFIX_MODULE . '(?P<moduleName>[A-Z0-9_]+)_(?P<auth>[A-Z]+)/',
+                    $role['slug'],
+                    $matches
+                );
 
-            if (($key = array_search('1', $role))) {
-                $roles[$matches['moduleName']][$key] = '1';
+                if (($key = array_search('1', $role))) {
+                    $roles[$matches['moduleName']][$key] = '1';
+                }
             }
         }
 
@@ -2485,13 +2492,13 @@ abstract class ModuleCore implements ModuleInterface
                 `slug` LIKE "%UPDATE" as "configure",
                 `slug` LIKE "%DELETE" as "uninstall"
             FROM `' . _DB_PREFIX_ . 'authorization_role` a
-            WHERE `slug` LIKE "ROLE_MOD_MODULE_%"
+            WHERE `slug` LIKE "' . Permission::PREFIX_MODULE . '%"
             ORDER BY a.slug
         ');
 
         foreach ($result as $row) {
             preg_match(
-                '/ROLE_MOD_MODULE_(?P<moduleName>[A-Z0-9_]+)_(?P<auth>[A-Z]+)/',
+                '/' . Permission::PREFIX_MODULE . '(?P<moduleName>[A-Z0-9_]+)_(?P<auth>[A-Z]+)/',
                 $row['slug'],
                 $matches
             );
@@ -2514,7 +2521,7 @@ abstract class ModuleCore implements ModuleInterface
     /**
      * Check employee permission for module.
      *
-     * @param array $variable (action)
+     * @param string $variable (action)
      * @param Employee $employee
      *
      * @return bool if module can be transplanted on hook
@@ -2645,18 +2652,16 @@ abstract class ModuleCore implements ModuleInterface
      *
      * @param int $id_hook Hook ID
      *
-     * @return int position
+     * @return int position or 0 if hook not found
      */
     public function getPosition($id_hook)
     {
-        $result = Db::getInstance()->getRow('
+        return (int) Db::getInstance()->getValue('
             SELECT `position`
             FROM `' . _DB_PREFIX_ . 'hook_module`
             WHERE `id_hook` = ' . (int) $id_hook . '
             AND `id_module` = ' . (int) $this->id . '
             AND `id_shop` = ' . (int) Context::getContext()->shop->id);
-
-        return $result['position'];
     }
 
     /**
@@ -2787,13 +2792,19 @@ abstract class ModuleCore implements ModuleInterface
             file_put_contents($path_override, preg_replace('#(\r\n|\r)#ism', "\n", file_get_contents($path_override)));
         }
 
+        $psOverrideDir = _PS_ROOT_DIR_ . DIRECTORY_SEPARATOR . 'override';
+
         $pattern_escape_com = '#(^\s*?\/\/.*?\n|\/\*(?!\n\s+\* module:.*?\* date:.*?\* version:.*?\*\/).*?\*\/)#ism';
         // Check if there is already an override file, if not, we just need to copy the file
-        if ($file = PrestaShopAutoload::getInstance()->getClassPath($classname)) {
-            // Check if override file is writable
-            $override_path = _PS_ROOT_DIR_ . '/' . $file;
+        $file = PrestaShopAutoload::getInstance()->getClassPath($classname);
+        $override_path = _PS_ROOT_DIR_ . '/' . $file;
 
-            if ((!file_exists($override_path) && !is_writable(dirname($override_path))) || (file_exists($override_path) && !is_writable($override_path))) {
+        if ($file && file_exists($override_path)) {
+            // Create directory if not exists
+            $this->createOverrideDirectory($psOverrideDir, dirname($override_path));
+
+            // Check if override file is writable
+            if (!is_writable(dirname($override_path)) || !is_writable($override_path)) {
                 throw new Exception(Context::getContext()->getTranslator()->trans('file (%s) not writable', [$override_path], 'Admin.Notifications.Error'));
             }
 
@@ -2866,6 +2877,7 @@ abstract class ModuleCore implements ModuleInterface
                 }
             }
 
+            // Check if none of the constants already exists in the override class
             foreach ($module_class->getConstants() as $constant => $value) {
                 if ($override_class->hasConstant($constant)) {
                     throw new Exception(Context::getContext()->getTranslator()->trans('The constant %1$s in the class %2$s is already defined.', [$constant, $classname], 'Admin.Modules.Notification'));
@@ -2886,12 +2898,11 @@ abstract class ModuleCore implements ModuleInterface
         } else {
             $override_src = $path_override;
 
-            $override_dest = _PS_ROOT_DIR_ . DIRECTORY_SEPARATOR . 'override' . DIRECTORY_SEPARATOR . $path;
+            $override_dest = $psOverrideDir . DIRECTORY_SEPARATOR . $path;
             $dir_name = dirname($override_dest);
 
-            if (!$orig_path && !is_dir($dir_name)) {
-                @mkdir($dir_name, FileSystem::DEFAULT_MODE_FOLDER);
-            }
+            // Create directory if not exists
+            $this->createOverrideDirectory($psOverrideDir, $dir_name);
 
             if (!is_writable($dir_name)) {
                 throw new Exception(Context::getContext()->getTranslator()->trans('directory (%s) not writable', [$dir_name], 'Admin.Notifications.Error'));
@@ -2946,10 +2957,42 @@ abstract class ModuleCore implements ModuleInterface
             file_put_contents($override_dest, preg_replace($pattern_escape_com, '', $module_file));
 
             // Re-generate the class index
-            Tools::generateIndex();
+            PrestashopAutoload::getInstance()->generateIndex();
         }
 
         return true;
+    }
+
+    /**
+     * Create override directory and add index.php in all tree
+     *
+     * @param string $directoryOverride Absolute path of the override directory
+     * @param string $directoryPath Absolute path of the overriden file directory
+     *
+     * @return void
+     */
+    private function createOverrideDirectory(string $directoryOverride, string $directoryPath): void
+    {
+        if (is_dir($directoryPath)) {
+            return;
+        }
+        $fs = new SfFileSystem();
+
+        // Create directory (in recursive mode)
+        $fs->mkdir($directoryPath, FileSystem::DEFAULT_MODE_FOLDER);
+
+        // Copy index.php to each directory
+        $splDir = new SplFileInfo($directoryPath . DIRECTORY_SEPARATOR . 'index.php');
+        do {
+            // Copy file
+            $fs->copy(
+                $directoryOverride . DIRECTORY_SEPARATOR . 'index.php',
+                $splDir->getPath() . DIRECTORY_SEPARATOR . 'index.php'
+            );
+
+            // Get Parent directory
+            $splDir = $splDir->getPathInfo();
+        } while ($splDir->getPath() !== $directoryOverride);
     }
 
     /**
@@ -3038,7 +3081,6 @@ abstract class ModuleCore implements ModuleInterface
                 $length = $method->getEndLine() - $method->getStartLine() + 1;
 
                 $module_method = $module_class->getMethod($method->getName());
-                $module_length = $module_method->getEndLine() - $module_method->getStartLine() + 1;
 
                 $override_file_orig = $override_file;
 
@@ -3121,18 +3163,89 @@ abstract class ModuleCore implements ModuleInterface
             }
 
             $to_delete = preg_match('/<\?(?:php)?\s+(?:abstract|interface)?\s*?class\s+' . $classname . '\s+extends\s+' . $classname . 'Core\s*?[{]\s*?[}]/ism', $code);
+
+            if (!$to_delete) {
+                // To detect if the class has remaining code, we dynamically create a class which contains the remaining code.
+                eval(
+                    preg_replace(
+                        [
+                            '#^\s*<\?(?:php)?#',
+                            '#class\s+' . $classname . '\s+extends\s+([a-z0-9_]+)(\s+implements\s+([a-z0-9_]+))?#i',
+                        ],
+                        [
+                            ' ',
+                            'class ' . $classname . 'OverrideOriginal_check' . $uniq . ' extends \stdClass',
+                        ],
+                        $code
+                    )
+                );
+
+                // Then we use ReflectionClass to analyze what this code actually contains
+                $override_class = new ReflectionClass($classname . 'OverrideOriginal_check' . $uniq);
+
+                // If no valuable code remains then we can delete it
+                $to_delete = $override_class->getConstants() === []
+                    && $override_class->getProperties() === []
+                    && $override_class->getMethods() === [];
+            }
         }
 
         if (!isset($to_delete) || $to_delete) {
+            // Remove file
             unlink($override_path);
+
+            // Remove directory
+            $this->removeOverrideDirectory(
+                _PS_ROOT_DIR_ . DIRECTORY_SEPARATOR . 'override',
+                dirname($override_path)
+            );
         } else {
             file_put_contents($override_path, $code);
         }
 
         // Re-generate the class index
-        Tools::generateIndex();
+        PrestashopAutoload::getInstance()->generateIndex();
 
         return true;
+    }
+
+    /**
+     * Remove override directory tree if the tree is empty
+     *
+     * @param string $directoryOverride
+     * @param string $directoryPath
+     *
+     * @return void
+     */
+    private function removeOverrideDirectory(string $directoryOverride, string $directoryPath): void
+    {
+        if (!is_dir($directoryPath)) {
+            return;
+        }
+
+        $fs = new SfFileSystem();
+
+        $splDir = new SplFileInfo($directoryPath);
+        do {
+            // Check if there is only index.php in directory
+            $finder = new Finder();
+            $finder
+                ->files()
+                ->in($splDir->getPathname())
+                ->notName('index.php');
+            if ($finder->hasResults()) {
+                break;
+            }
+
+            // Remove index.php
+            $fs->remove($splDir->getPathname() . DIRECTORY_SEPARATOR . 'index.php');
+
+            // Remove directory
+            $fs->remove($splDir->getPathname());
+
+            // Get Parent directory
+            $splDir = $splDir->getPathInfo();
+        } while ($splDir->getRealPath() !== $directoryOverride);
     }
 
     private function getWidgetHooks()
@@ -3154,17 +3267,13 @@ abstract class ModuleCore implements ModuleInterface
      */
     public function getPossibleHooksList()
     {
-        if ($this instanceof WidgetInterface) {
-            return $this->getWidgetHooks();
-        }
-
         $hooks_list = Hook::getHooks();
         $possible_hooks_list = [];
         $registeredHookList = Hook::getHookModuleList();
         foreach ($hooks_list as $current_hook) {
             $hook_name = $current_hook['name'];
 
-            if (!Hook::isAlias($hook_name) && Hook::isHookCallableOn($this, $hook_name)) {
+            if (!Hook::isAlias($hook_name) && $this instanceof Module && Hook::isHookCallableOn($this, $hook_name)) {
                 $possible_hooks_list[] = [
                     'id_hook' => $current_hook['id_hook'],
                     'name' => $hook_name,
@@ -3173,6 +3282,12 @@ abstract class ModuleCore implements ModuleInterface
                     'registered' => !empty($registeredHookList[$current_hook['id_hook']][$this->id]),
                 ];
             }
+        }
+
+        if ($this instanceof WidgetInterface) {
+            $possible_hooks_list = array_merge($this->getWidgetHooks(), $possible_hooks_list);
+            $name_column = array_column($possible_hooks_list, 'name');
+            array_multisort($name_column, SORT_ASC, $possible_hooks_list);
         }
 
         return $possible_hooks_list;
@@ -3207,8 +3322,6 @@ abstract class ModuleCore implements ModuleInterface
 
     protected function trans($id, array $parameters = [], $domain = null, $locale = null)
     {
-        $parameters['legacy'] = 'htmlspecialchars';
-
         return $this->getTranslator()->trans($id, $parameters, $domain, $locale);
     }
 
@@ -3267,7 +3380,7 @@ abstract class ModuleCore implements ModuleInterface
      *
      * @throws ServiceCircularReferenceException When a circular reference is detected
      * @throws ServiceNotFoundException When the service is not defined
-     * @throws \Exception
+     * @throws Exception
      */
     public function get($serviceName)
     {
@@ -3369,6 +3482,12 @@ abstract class ModuleCore implements ModuleInterface
         }
 
         $this->getContainer()->get('prestashop.adapter.cache.clearer.symfony_cache_clearer')->clear();
+    }
+
+    public static function resetStaticCache()
+    {
+        static::$_INSTANCE = [];
+        Cache::clean('Module::isEnabled*');
     }
 }
 

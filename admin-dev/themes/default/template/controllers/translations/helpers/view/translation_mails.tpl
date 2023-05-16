@@ -55,8 +55,8 @@
 				<input type="hidden" name="type" value="{$type}" />
 				<input type="hidden" name="selected-theme" value="{$theme}" />
 				<script type="text/javascript">
-					$(document).ready(function(){
-						$('a.useSpecialSyntax').click(function(){
+					$(function(){
+						$('a.useSpecialSyntax').on('click', function(){
 							var syntax = $(this).find('img').attr('alt');
 							$('#BoxUseSpecialSyntax .syntax span').html(syntax+".");
 						});
@@ -67,7 +67,7 @@
 						<p>
 							{l s='Some of these expressions use this special syntax: %s.' sprintf=['%d'] d='Admin.International.Help'}
 							<br />
-							{l s='You MUST use this syntax in your translations. Here are several examples:' d='Admin.International.Help'}
+							{l s='You must use this syntax in your translations. Here are several examples:' d='Admin.International.Help'}
 						</p>
 						<ul>
               <li>"{l s='There are [1]%replace%[/1] products' html=true sprintf=['%replace%' => '%d', '[1]' => '<strong>', '[/1]' => '</strong>'] d='Admin.International.Help'}": {l s='"%s" will be replaced by a number.' sprintf=['%d'] d='Admin.International.Help'}</li>
@@ -104,7 +104,7 @@
 				{literal}
 				<script type="text/javascript">
 				//<![CDATA[
-					$(document).ready(function () {
+					$(function () {
 						$('.mails_field').on('shown.bs.collapse', function () {
 							// get active email
 							var active_email = $(this).find('.email-collapse.in');

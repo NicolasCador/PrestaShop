@@ -24,6 +24,8 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 
+use PrestaShop\PrestaShop\Core\Util\Sorter;
+
 /**
  * @since 1.5
  */
@@ -56,14 +58,7 @@ class HTMLTemplateOrderSlipCore extends HTMLTemplateInvoice
         $this->order = new Order((int) $order_slip->id_order);
         $this->id_cart = $this->order->id_cart;
 
-        $products = OrderSlip::getOrdersSlipProducts($this->order_slip->id, $this->order);
-
-        foreach ($products as $product) {
-            $customized_datas = Product::getAllCustomizedDatas($this->id_cart, null, true, null, (int) $product['id_customization']);
-            Product::addProductCustomizationPrice($product, $customized_datas);
-        }
-
-        $this->order->products = $products;
+        $this->order->products = OrderSlip::getOrdersSlipProducts($this->order_slip->id, $this->order);
         $this->smarty = $smarty;
         $this->smarty->assign('isTaxEnabled', (bool) Configuration::get('PS_TAX'));
 
@@ -159,10 +154,15 @@ class HTMLTemplateOrderSlipCore extends HTMLTemplateInvoice
             }
         }
 
+        $order_details = $this->order->products;
+        // Sort products by Reference ID (and if equals (like combination) by Supplier Reference)
+        $sorter = new Sorter();
+        $order_details = $sorter->natural($order_details, Sorter::ORDER_DESC, 'product_reference', 'product_supplier_reference');
+
         $this->smarty->assign([
             'order' => $this->order,
             'order_slip' => $this->order_slip,
-            'order_details' => $this->order->products,
+            'order_details' => $order_details,
             'cart_rules' => $this->order_slip->order_slip_type == 1 ? $this->order->getCartRules() : false,
             'amount_choosen' => $this->order_slip->order_slip_type == 2 ? true : false,
             'delivery_address' => $formatted_delivery_address,

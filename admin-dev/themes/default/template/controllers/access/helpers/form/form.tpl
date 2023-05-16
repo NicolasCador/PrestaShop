@@ -23,10 +23,10 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  *}
 <script type="text/javascript">
-   $(document).ready(function() {
+   $(function() {
       var id_tab_parentmodule = {$id_tab_parentmodule|intval};
       var id_tab_module = {$id_tab_module|intval};
-      $('tr.child-'+id_tab_parentmodule+' > td > input.view.'+id_tab_module).change( function () {
+      $('tr.child-'+id_tab_parentmodule+' > td > input.view.'+id_tab_module).on('change', function () {
          if (!$(this).prop('checked'))
          {
             $('#table_module_2 thead th:eq(1) input').trigger('click');
@@ -34,7 +34,7 @@
                $('#table_module_2 thead th:eq(1) input').trigger('click');
          }
       });
-      $('tr.child-'+id_tab_parentmodule+' > td > input.edit.'+id_tab_module).change( function () {
+      $('tr.child-'+id_tab_parentmodule+' > td > input.edit.'+id_tab_module).on('change', function () {
          if (!$(this).prop('checked'))
          {
             $('#table_module_2 thead th:eq(2) input').trigger('click');
@@ -46,7 +46,7 @@
       $('div.productTabs').find('a').each(function() {
          $(this).attr('href', '#');
       });
-      $('div.productTabs a').click(function() {
+      $('div.productTabs a').on('click', function() {
          var id = $(this).attr('id');
          $('.nav-profile').removeClass('selected');
          $(this).addClass('selected active');
@@ -64,7 +64,7 @@
          }
          return false;
       }
-      $('.ajaxPower').change(function(){
+      $('.ajaxPower').on('change', function(){
          var tout = $(this).data('rel').split('||');
          var rel = $(this).data('rel');
          var id_tab = tout[0];
@@ -190,7 +190,7 @@
             }
          });
       });
-      $(".changeModuleAccess").change(function(){
+      $(".changeModuleAccess").on('change', function(){
          var tout = $(this).data('rel').split('||');
          var id_module = tout[0];
          var perm = tout[1];
@@ -238,10 +238,6 @@
       });
    });
 </script>
-{if $show_toolbar}
-  {include file="toolbar.tpl" toolbar_btn=$toolbar_btn toolbar_scroll=$toolbar_scroll title=$title}
-  <div class="leadin">{block name="leadin"}{/block}</div>
-{/if}
 <div class="row">
   <div class="productTabs col-lg-2">
     <div class="tab list-group">
@@ -294,23 +290,44 @@
                           {assign var=id_perm value=$id_perms[$perm]}
                           {if $access_edit == 1 && $accesses[$employee_profile_id][$tab.id_tab][$perm]}
                             <td>
-                              <input type="checkbox" data-id="{$id_perm}" data-parent="0" data-type="{$perm}"
+                              <input type="checkbox"
+                                     data-id="{$id_perm}"
+                                     data-parent="0"
+                                     data-type="{$perm}"
+                                     data-classname="{$tab.class_name}"
                                      data-rel="{$access[$tab.id_tab]['id_tab']}||{$profile.id_profile}||{$perm}||{$tabsize}||{count($tabs)}"
-                                     class="ajaxPower {$perm} {$access[$tab.id_tab]['id_tab']}"{if $access[$tab.id_tab][$perm] == 1} checked="checked"{/if}/>
+                                     class="ajaxPower {$perm} {$access[$tab.id_tab]['id_tab']}"
+                                     {if $access[$tab.id_tab][$perm] == 1} checked="checked"{/if}
+                              />
                             </td>
                           {else}
                             {assign var=has_all_rights value=false}
                             {assign var=enable_bulk_view value=false}
                             <td>
                               <input type="checkbox"
-                                     disabled="disabled"{if $access[$tab.id_tab][$perm] == 1} checked="checked"{/if}/>
+                                     disabled="disabled"
+                                     {if $access[$tab.id_tab][$perm] == 1} checked="checked"{/if}
+                              />
                             </td>
                           {/if}
                           {assign var=result_accesses value=$result_accesses + $access[$tab.id_tab][$perm]}
                         {/foreach}
                         <td>
                           <input
-                            type="checkbox"{if $access_edit == 1 && $has_all_rights} data-id="4" data-parent="0" data-type="all" data-rel="{$access[$tab.id_tab]['id_tab']}||{$profile.id_profile}||all||{$tabsize}||{count($tabs)}" class="ajaxPower all {$access[$tab.id_tab]['id_tab']}"{else} class="all {$access[$tab.id_tab]['id_tab']}" disabled="disabled"{/if}{if $result_accesses == 4} checked="checked"{/if}/>
+                            type="checkbox"
+                            {if $access_edit == 1 && $has_all_rights}
+                              data-id="4"
+                              data-parent="0"
+                              data-type="all"
+                              data-classname="{$tab.class_name}"
+                              data-rel="{$access[$tab.id_tab]['id_tab']}||{$profile.id_profile}||all||{$tabsize}||{count($tabs)}"
+                              class="ajaxPower all {$access[$tab.id_tab]['id_tab']}"
+                            {else}
+                              class="all {$access[$tab.id_tab]['id_tab']}"
+                              disabled="disabled"
+                            {/if}
+                            {if $result_accesses == 4} checked="checked"{/if}
+                          />
                         </td>
                       </tr>
                       {if count($tab.children)}
@@ -326,10 +343,14 @@
                                   {assign var=id_perm value=$id_perms[$perm]}
                                   {if $access_edit == 1 && $accesses[$employee_profile_id][$child.id_tab][$perm]}
                                     <td>
-                                      <input type="checkbox" data-id="{$id_perm}" data-parent="{$child.id_parent}"
+                                      <input type="checkbox"
+                                             data-id="{$id_perm}" data-parent="{$child.id_parent}"
                                              data-type="{$perm}"
+                                             data-classname="{$child.class_name}"
                                              data-rel="{$access[$child.id_tab]['id_tab']}||{$profile.id_profile}||{$perm}||{$tabsize}||{count($tabs)}"
-                                             class="ajaxPower {$perm} {$access[$child.id_tab]['id_tab']}"{if $access[$child.id_tab][$perm] == 1} checked="checked"{/if}/>
+                                             class="ajaxPower {$perm} {$access[$child.id_tab]['id_tab']}"
+                                             {if $access[$child.id_tab][$perm] == 1} checked="checked"{/if}
+                                      />
                                     </td>
                                   {else}
                                     {assign var=has_all_rights value=false}
@@ -343,7 +364,20 @@
                                 {/foreach}
                                 <td>
                                   <input
-                                    type="checkbox"{if $access_edit == 1 && $has_all_rights} data-id="4" data-parent="{$child.id_parent}" data-type="all" data-rel="{$access[$child.id_tab]['id_tab']}||{$profile.id_profile}||all||{$tabsize}||{count($tabs)}" class="ajaxPower all {$access[$child.id_tab]['id_tab']}"{else} class="all {$access[$child.id_tab]['id_tab']}" disabled="disabled"{/if}{if $result_accesses == 4} checked="checked"{/if}/>
+                                    type="checkbox"
+                                    {if $access_edit == 1 && $has_all_rights}
+                                      data-id="4"
+                                      data-parent="{$child.id_parent}"
+                                      data-type="all"
+                                      data-classname="{$child.class_name}"
+                                      data-rel="{$access[$child.id_tab]['id_tab']}||{$profile.id_profile}||all||{$tabsize}||{count($tabs)}"
+                                      class="ajaxPower all {$access[$child.id_tab]['id_tab']}"
+                                    {else}
+                                      class="all {$access[$child.id_tab]['id_tab']}"
+                                      disabled="disabled"
+                                    {/if}
+                                    {if $result_accesses == 4} checked="checked"{/if}
+                                  />
                                 </td>
                               </tr>
                             {/if}
@@ -360,24 +394,44 @@
                                       {assign var=id_perm value=$id_perms[$perm]}
                                       {if $access_edit == 1 && $accesses[$employee_profile_id][$subChild.id_tab][$perm]}
                                         <td>
-                                          <input type="checkbox" data-id="{$id_perm}"
-                                                 data-parent="{$subChild.id_parent}" data-type="{$perm}"
+                                          <input type="checkbox"
+                                                 data-id="{$id_perm}"
+                                                 data-parent="{$subChild.id_parent}"
+                                                 data-type="{$perm}"
+                                                 data-classname="{$subChild.class_name}"
                                                  data-rel="{$access[$subChild.id_tab]['id_tab']}||{$profile.id_profile}||{$perm}||{$tabsize}||{count($tabs)}"
-                                                 class="ajaxPower {$perm} {$access[$subChild.id_tab]['id_tab']}"{if $access[$subChild.id_tab][$perm] == 1} checked="checked"{/if}/>
+                                                 class="ajaxPower {$perm} {$access[$subChild.id_tab]['id_tab']}"
+                                                 {if $access[$subChild.id_tab][$perm] == 1} checked="checked"{/if}
+                                          />
                                         </td>
                                       {else}
                                         {assign var=has_all_rights value=false}
                                         {assign var=enable_bulk_edit value=false}
                                         <td>
                                           <input type="checkbox"
-                                                 disabled="disabled"{if $access[$subChild.id_tab][$perm] == 1} checked="checked"{/if}/>
+                                                 disabled="disabled"
+                                                 {if $access[$subChild.id_tab][$perm] == 1} checked="checked"{/if}
+                                          />
                                         </td>
                                       {/if}
                                       {assign var=result_accesses value=$result_accesses + $access[$subChild.id_tab][$perm]}
                                     {/foreach}
                                     <td>
                                       <input
-                                        type="checkbox"{if $access_edit == 1 && $has_all_rights} data-id="4" data-parent="{$subChild.id_parent}" data-type="all" data-rel="{$access[$subChild.id_tab]['id_tab']}||{$profile.id_profile}||all||{$tabsize}||{count($tabs)}" class="ajaxPower all {$access[$subChild.id_tab]['id_tab']}"{else} class="all {$access[$subChild.id_tab]['id_tab']}" disabled="disabled"{/if}{if $result_accesses == 4} checked="checked"{/if}/>
+                                        type="checkbox"
+                                        {if $access_edit == 1 && $has_all_rights}
+                                          data-id="4"
+                                          data-parent="{$subChild.id_parent}"
+                                          data-type="all"
+                                          data-classname="{$subChild.class_name}"
+                                          data-rel="{$access[$subChild.id_tab]['id_tab']}||{$profile.id_profile}||all||{$tabsize}||{count($tabs)}"
+                                          class="ajaxPower all {$access[$subChild.id_tab]['id_tab']}"
+                                        {else}
+                                          class="all {$access[$subChild.id_tab]['id_tab']}"
+                                          disabled="disabled"
+                                        {/if}
+                                        {if $result_accesses == 4}checked="checked"{/if}
+                                      />
                                     </td>
                                   </tr>
                                   {if count($subChild.children)}
@@ -393,23 +447,43 @@
                                             {if $access_edit == 1  && $accesses[$employee_profile_id][$subsubChild.id_tab][$perm]}
                                               <td>
                                                 <input type="checkbox" data-id="{$id_perm}"
-                                                       data-parent="{$subsubChild.id_parent}" data-type="{$perm}"
+                                                       data-parent="{$subsubChild.id_parent}"
+                                                       data-type="{$perm}"
+                                                       data-classname="{$subsubChild.class_name}"
                                                        data-rel="{$access[$subsubChild.id_tab]['id_tab']}||{$profile.id_profile}||{$perm}||{$tabsize}||{count($tabs)}"
-                                                       class="ajaxPower {$perm} {$access[$subsubChild.id_tab]['id_tab']}"{if $access[$subsubChild.id_tab][$perm] == 1} checked="checked"{/if}/>
+                                                       class="ajaxPower {$perm} {$access[$subsubChild.id_tab]['id_tab']}"
+                                                       {if $access[$subsubChild.id_tab][$perm] == 1} checked="checked"{/if}
+                                                />
                                               </td>
                                             {else}
                                               {assign var=has_all_rights value=false}
                                               {assign var=enable_bulk_delete value=false}
                                               <td>
                                                 <input type="checkbox"
-                                                       disabled="disabled"{if $access[$subsubChild.id_tab][$perm] == 1} checked="checked"{/if}/>
+                                                       disabled="disabled"
+                                                       {if $access[$subsubChild.id_tab][$perm] == 1} checked="checked"{/if}
+                                                />
                                               </td>
                                             {/if}
                                             {assign var=result_accesses value=$result_accesses + $access[$subsubChild.id_tab][$perm]}
                                           {/foreach}
                                           <td>
                                             <input
-                                              type="checkbox"{if $access_edit == 1  && $has_all_rights} data-id="4" data-parent="{$subChild.id_parent}" data-type="all" data-rel="{$access[$subsubChild.id_tab]['id_tab']}||{$profile.id_profile}||all||{$tabsize}||{count($tabs)}" class="ajaxPower all {$access[$subsubChild.id_tab]['id_tab']}"{else} {assign var=enable_bulk_all value=false}class="all {$access[$subsubChild.id_tab]['id_tab']}" disabled="disabled"{/if}{if $result_accesses == 4} checked="checked"{/if}/>
+                                              type="checkbox"
+                                              {if $access_edit == 1  && $has_all_rights}
+                                                data-id="4"
+                                                data-parent="{$subChild.id_parent}"
+                                                data-type="all"
+                                                data-classname="{$subsubChild.class_name}"
+                                                data-rel="{$access[$subsubChild.id_tab]['id_tab']}||{$profile.id_profile}||all||{$tabsize}||{count($tabs)}"
+                                                class="ajaxPower all {$access[$subsubChild.id_tab]['id_tab']}"
+                                              {else}
+                                                {assign var=enable_bulk_all value=false}
+                                                class="all {$access[$subsubChild.id_tab]['id_tab']}"
+                                                disabled="disabled"
+                                              {/if}
+                                              {if $result_accesses == 4} checked="checked"{/if}
+                                            />
                                           </td>
                                         </tr>
                                       {/if}

@@ -126,7 +126,7 @@ class AdminProductsController extends AdminProductsControllerCore
                     $context->shop = new Shop((int) $this->_list[$i]['id_shop_default']);
                 }
                 $this->_list[$i]['price'] = Tools::convertPrice($this->_list[$i]['price'], $this->context->currency, true, $this->context);
-                $this->_list[$i]['price_tmp'] = Product::getPriceStatic($this->_list[$i]['id_product'], true, null, 2, null, false, true, 1, true, null, null, null, $nothing, true, true, $context);
+                $this->_list[$i]['price_tmp'] = (float) Product::getPriceStatic($this->_list[$i]['id_product'], true, null, 2, null, false, true, 1, true, null, null, null, $nothing, true, true, $context);
             }
         }
         if ($orderByPriceFinal == 'price_final') {
@@ -2573,7 +2573,7 @@ class AdminProductsController extends AdminProductsControllerCore
                     if ($this->context->currency->id) {
                         $product_supplier->id_currency = (int) $this->context->currency->id;
                     } else {
-                        $product_supplier->id_currency = (int) Configuration::get('PS_CURRENCY_DEFAULT');
+                        $product_supplier->id_currency = Currency::getDefaultCurrencyId();
                     }
                     $product_supplier->save();
                     $associated_suppliers[] = $product_supplier;
@@ -3512,7 +3512,7 @@ class AdminProductsController extends AdminProductsControllerCore
         $images = Image::getImages($this->context->language->id, $product->id);
         if (is_array($images)) {
             foreach ($images as $k => $image) {
-                $images[$k]['src'] = $this->context->link->getImageLink($product->link_rewrite[$this->context->language->id], $product->id . '-' . $image['id_image'], ImageType::getFormattedName('small'));
+                $images[$k]['src'] = $this->context->link->getImageLink($product->link_rewrite[$this->context->language->id], $image['id_image'], ImageType::getFormattedName('small'));
             }
             $data->assign('images', $images);
         }
@@ -4119,7 +4119,7 @@ class AdminProductsController extends AdminProductsControllerCore
                     'product' => $obj,
                     'link' => $this->context->link,
                     'token' => $this->token,
-                    'id_default_currency' => Configuration::get('PS_CURRENCY_DEFAULT'),
+                    'id_default_currency' => Currency::getDefaultCurrencyId(),
                 ]);
             } else {
                 $this->displayWarning($this->l('You must save the product in this shop before managing suppliers.'));

@@ -25,16 +25,13 @@
 {% extends '@PrestaShop/Admin/layout.html.twig' %}
 
 {% block stylesheets %}
+  {{ parent() }}
   <link rel="stylesheet" href="{{ asset('themes/new-theme/public/product_catalog.css') }}" type="text/css" media="all">
 {% endblock %}
 
 {% block content %}
   {% block products_listing %}
-    <div class="row">
-      <div class="col">
-        {% include '@PrestaShop/Admin/Common/Grid/grid_panel.html.twig' with {'grid': productGrid} %}
-      </div>
-    </div>
+    {% include '@PrestaShop/Admin/Sell/Catalog/Product/Grid/grid_panel.html.twig' with {'grid': productGrid} %}
   {% endblock %}
 {% endblock %}
 

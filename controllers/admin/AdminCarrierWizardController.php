@@ -107,11 +107,17 @@ class AdminCarrierWizardControllerCore extends AdminController
         }
     }
 
+    /**
+     * @return string|void
+     *
+     * @throws SmartyException
+     */
     public function renderView()
     {
         $this->initWizard();
 
         if (Tools::getValue('id_carrier') && $this->access('edit')) {
+            /** @var Carrier $carrier */
             $carrier = $this->loadObject();
         } elseif ($this->access('add')) {
             $carrier = new Carrier();
@@ -256,7 +262,7 @@ class AdminCarrierWizardControllerCore extends AdminController
                 'input' => [
                     [
                         'type' => 'shop',
-                        'label' => $this->trans('Shop association', [], 'Admin.Global'),
+                        'label' => $this->trans('Store association', [], 'Admin.Global'),
                         'name' => 'checkBoxShopAsso',
                     ],
                 ],
@@ -516,6 +522,10 @@ class AdminCarrierWizardControllerCore extends AdminController
             }
         }
 
+        if ($fields_value['zones'] === false) {
+            $fields_value['zones'] = [];
+        }
+
         $range_table = $carrier->getRangeTable();
         $shipping_method = $carrier->getShippingMethod();
 
@@ -632,6 +642,7 @@ class AdminCarrierWizardControllerCore extends AdminController
             return;
         }
 
+        /** @var Carrier $carrier */
         $carrier = $this->loadObject(true);
         $carrier->shipping_method = $shipping_method;
 
@@ -972,7 +983,7 @@ class AdminCarrierWizardControllerCore extends AdminController
             Shop::setContext($this->type_context, $this->old_context->shop->id_shop_group);
         }
 
-        $currency = new Currency(Configuration::get('PS_CURRENCY_DEFAULT'));
+        $currency = Currency::getDefaultCurrency();
 
         Shop::setContext(Shop::CONTEXT_ALL);
 

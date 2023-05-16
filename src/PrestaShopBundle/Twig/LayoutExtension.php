@@ -220,31 +220,43 @@ EOF;
             $baseLayout
         );
 
-        //test if legacy template from "content.tpl" has '{$content}'
+        // There is nothing to display no legacy layout are generated
+        if ($layout === '') {
+            return '';
+        }
+
+        // Test if legacy template from "content.tpl" has '{$content}'
         if (false === strpos($layout, '{$content}')) {
             throw new Exception('PrestaShopBundle\Twig\LayoutExtension cannot find the {$content} string in legacy layout template', 1);
         }
 
-        $content = str_replace(
-            [
-                '{$content}',
-                'var currentIndex = \'index.php\';',
-                '</head>',
-                '</body>',
-            ],
-            [
-                '{% block content_header %}{% endblock %}
-                 {% block content %}{% endblock %}
-                 {% block content_footer %}{% endblock %}
-                 {% block sidebar_right %}{% endblock %}',
-                'var currentIndex = \'' . $this->context->getAdminLink($controllerName) . '\';',
-                '{% block stylesheets %}{% endblock %}{% block extra_stylesheets %}{% endblock %}</head>',
-                '{% block javascripts %}{% endblock %}{% block extra_javascripts %}{% endblock %}{% block translate_javascripts %}{% endblock %}</body>',
-            ],
-            $layout
-        );
+        $explodedLayout = explode('{$content}', $layout);
+        $header = explode('</head>', $explodedLayout[0]);
+        $footer = explode('</body>', $explodedLayout[1]);
 
-        return $content;
+        return $this->escapeSmarty(str_replace('var currentIndex = \'index.php\';', 'var currentIndex = \'' . $this->context->getAdminLink($controllerName) . '\';', $header[0]))
+            . '{% block stylesheets %}{% endblock %}{% block extra_stylesheets %}{% endblock %}</head>'
+            . $this->escapeSmarty($header[1])
+            . '{% block content_header %}{% endblock %}'
+            . '{% block content %}{% endblock %}'
+            . '{% block content_footer %}{% endblock %}'
+            . '{% block sidebar_right %}{% endblock %}'
+            . $this->escapeSmarty($footer[0])
+            . '{% block javascripts %}{% endblock %}{% block extra_javascripts %}{% endblock %}{% block translate_javascripts %}{% endblock %}</body>'
+            . $this->escapeSmarty($footer[1]);
+    }
+
+    private function escapeSmarty(string $template): string
+    {
+        // Hard limit of twig filter at 8191 characters (2^13 - 1)
+        // Split the string in multiple chunks
+        $strings = str_split($template, 2000);
+        $return = '';
+        foreach ($strings as $string) {
+            $return .= '{{ \'' . addcslashes($string, "\\'\0") . '\' | raw }}';
+        }
+
+        return $return;
     }
 
     /**

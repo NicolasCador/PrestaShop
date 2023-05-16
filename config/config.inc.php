@@ -70,7 +70,6 @@ if (is_file(_PS_CUSTOM_CONFIG_FILE_)) {
     include_once _PS_CUSTOM_CONFIG_FILE_;
 }
 
-/* @phpstan-ignore-next-line */
 if (_PS_DEBUG_PROFILING_) {
     include_once _PS_TOOL_DIR_ . 'profiling/Profiler.php';
     include_once _PS_TOOL_DIR_ . 'profiling/Controller.php';
@@ -211,7 +210,32 @@ if (defined('_PS_ADMIN_DIR_')) {
 if (isset($cookie->id_lang) && $cookie->id_lang) {
     $language = new Language((int) $cookie->id_lang);
 }
-if (!isset($language) || !Validate::isLoadedObject($language) || !$language->isAssociatedToShop()) {
+
+$isNotValidLanguage = !isset($language) || !Validate::isLoadedObject($language);
+// `true` if language is defined from multishop or backoffice (`$employee` variable defined) session
+$isLanguageDefinedFromSession = (isset($language) && $language->isAssociatedToShop()) || defined('_PS_ADMIN_DIR_');
+
+$useDefaultLanguage = $isNotValidLanguage || !$isLanguageDefinedFromSession;
+if ($useDefaultLanguage) {
+    // Default value for most cases
+    $language = new Language((int) Configuration::get('PS_LANG_DEFAULT'));
+
+    // if `PS_LANG_DEFAULT` not a valid language for current shop then
+    // use first valid language of the shop as default language.
+    if($language->isMultishop() && !$language->isAssociatedToShop()) {
+        $shopLanguages = $language->getLanguages(true, Context::getContext()->shop->id, false);
+
+        if(isset($shopLanguages[0]['id_lang'])) {
+            $shopDefaultLanguage = new Language($shopLanguages[0]['id_lang']);
+
+            if(Validate::isLoadedObject($language)) {
+                $language = $shopDefaultLanguage;
+            }
+        }
+    }
+}
+if (!isset($language)) {
+    // Default value for most cases
     $language = new Language((int) Configuration::get('PS_LANG_DEFAULT'));
 }
 

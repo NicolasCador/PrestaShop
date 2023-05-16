@@ -254,7 +254,7 @@ class ManufacturerCore extends ObjectModel
         $totalManufacturers = count($manufacturers);
         $rewriteSettings = (int) Configuration::get('PS_REWRITING_SETTINGS');
         for ($i = 0; $i < $totalManufacturers; ++$i) {
-            $manufacturers[$i]['link_rewrite'] = ($rewriteSettings ? Tools::link_rewrite($manufacturers[$i]['name']) : 0);
+            $manufacturers[$i]['link_rewrite'] = ($rewriteSettings ? Tools::str2url($manufacturers[$i]['name']) : 0);
         }
 
         return $manufacturers;
@@ -351,7 +351,7 @@ class ManufacturerCore extends ObjectModel
      */
     public function getLink()
     {
-        return Tools::link_rewrite($this->name);
+        return Tools::str2url($this->name);
     }
 
     /**
@@ -361,8 +361,8 @@ class ManufacturerCore extends ObjectModel
      * @param int $idLang
      * @param int $p
      * @param int $n
-     * @param null $orderBy
-     * @param null $orderWay
+     * @param string|null $orderBy
+     * @param string|null $orderWay
      * @param bool $getTotal
      * @param bool $active
      * @param bool $activeCategory

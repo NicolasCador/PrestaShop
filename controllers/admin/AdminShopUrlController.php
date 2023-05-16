@@ -25,7 +25,7 @@
  */
 
 /**
- * @property ShopUrl $object
+ * @property ShopUrl|null $object
  */
 class AdminShopUrlControllerCore extends AdminController
 {
@@ -68,7 +68,7 @@ class AdminShopUrlControllerCore extends AdminController
                 'class' => 'fixed-width-xs',
             ],
             'shop_name' => [
-                'title' => $this->trans('Shop name', [], 'Admin.Advparameters.Feature'),
+                'title' => $this->trans('Store name', [], 'Admin.Advparameters.Feature'),
                 'filter_key' => 's!name',
             ],
             'url' => [
@@ -122,6 +122,12 @@ class AdminShopUrlControllerCore extends AdminController
         return parent::renderList();
     }
 
+    /**
+     * @return string|void
+     *
+     * @throws PrestaShopException
+     * @throws SmartyException
+     */
     public function renderForm()
     {
         $update_htaccess = Tools::modRewriteActive() && ((file_exists('.htaccess') && is_writable('.htaccess')) || is_writable(dirname('.htaccess')));
@@ -147,7 +153,7 @@ class AdminShopUrlControllerCore extends AdminController
                     'input' => [
                         [
                             'type' => 'select',
-                            'label' => $this->trans('Shop', [], 'Admin.Global'),
+                            'label' => $this->trans('Store', [], 'Admin.Global'),
                             'name' => 'id_shop',
                             'onchange' => 'checkMainUrlInfo(this.value);',
                             'options' => [
@@ -363,13 +369,13 @@ class AdminShopUrlControllerCore extends AdminController
         $shops_tree->setNodeFolderTemplate('shop_tree_node_folder.tpl')->setNodeItemTemplate('shop_tree_node_item.tpl')
             ->setHeaderTemplate('shop_tree_header.tpl')->setActions([
                 new TreeToolbarLink(
-                    'Collapse All',
+                    'Collapse all',
                     '#',
                     '$(\'#' . $shops_tree->getId() . '\').tree(\'collapseAll\'); return false;',
                     'icon-collapse-alt'
                 ),
                 new TreeToolbarLink(
-                    'Expand All',
+                    'Expand all',
                     '#',
                     '$(\'#' . $shops_tree->getId() . '\').tree(\'expandAll\'); return false;',
                     'icon-expand-alt'
@@ -453,7 +459,7 @@ class AdminShopUrlControllerCore extends AdminController
         }
 
         $unallowed = str_replace('/', '', Tools::getValue('virtual_uri'));
-        if ($unallowed == 'c' || $unallowed == 'img' || is_numeric($unallowed)) {
+        if ($unallowed == 'c' || $unallowed == 'img' || is_numeric($unallowed) || !preg_match('/^[a-z\d\-_]*$/i', $unallowed)) {
             $this->errors[] = $this->trans(
                 'A shop virtual URL cannot be "%URL%"',
                 [
@@ -513,6 +519,8 @@ class AdminShopUrlControllerCore extends AdminController
 
     /**
      * @param ShopUrl $object
+     *
+     * @return void|bool
      */
     protected function afterUpdate($object)
     {

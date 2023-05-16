@@ -36,6 +36,12 @@ class HelperCore
     public $context;
     public $toolbar_scroll = false;
     public $bootstrap = false;
+    public $className;
+    public $name_controller;
+    public $shopLink;
+    public $allow_employee_form_lang;
+    public $multiple_fieldsets;
+    public $position_group_identifier;
 
     /** @var Module|null */
     public $module;
@@ -53,6 +59,11 @@ class HelperCore
     public $base_tpl = 'content.tpl';
 
     public $tpl_vars = [];
+
+    /**
+     * @var string
+     */
+    public $controller_name = '';
 
     public function __construct()
     {
@@ -137,8 +148,8 @@ class HelperCore
 
         $translations = [
             'selected' => $translator->trans('Selected', [], 'Admin.Global'),
-            'Collapse All' => $translator->trans('Collapse All', [], 'Admin.Actions'),
-            'Expand All' => $translator->trans('Expand All', [], 'Admin.Actions'),
+            'Collapse all' => $translator->trans('Collapse all', [], 'Admin.Actions'),
+            'Expand all' => $translator->trans('Expand all', [], 'Admin.Actions'),
             'Check All' => $translator->trans('Check All', [], 'Admin.Actions'),
             'Uncheck All' => $translator->trans('Uncheck All', [], 'Admin.Actions'),
             'search' => $translator->trans('Find a category', [], 'Admin.Actions'),
@@ -187,8 +198,8 @@ class HelperCore
 
         $html .= '
         <div class="category-filter">
-            <a class="btn btn-link" href="#" id="collapse_all"><i class="icon-collapse"></i> ' . $translations['Collapse All'] . '</a>
-            <a class="btn btn-link" href="#" id="expand_all"><i class="icon-expand"></i> ' . $translations['Expand All'] . '</a>
+            <a class="btn btn-link" href="#" id="collapse_all"><i class="icon-collapse"></i> ' . $translations['Collapse all'] . '</a>
+            <a class="btn btn-link" href="#" id="expand_all"><i class="icon-expand"></i> ' . $translations['Expand all'] . '</a>
             ' . (!$use_radio ? '
                 <a class="btn btn-link" href="#" id="check_all"><i class="icon-check"></i> ' . $translations['Check All'] . '</a>
                 <a class="btn btn-link" href="#" id="uncheck_all"><i class="icon-check-empty"></i> ' . $translations['Uncheck All'] . '</a>' : '')
@@ -292,23 +303,5 @@ class HelperCore
         $tpl->assign($this->tpl_vars);
 
         return $tpl->fetch();
-    }
-
-    public function renderModulesList($modules_list)
-    {
-        $this->tpl_vars = [
-            'modules_list' => $modules_list,
-            'modules_uri' => __PS_BASE_URI__ . basename(_PS_MODULE_DIR_),
-        ];
-        // The translations for this are defined by AdminModules, so override the context for the translations
-        $override_controller_name_for_translations = Context::getContext()->override_controller_name_for_translations;
-        Context::getContext()->override_controller_name_for_translations = 'AdminModules';
-        $tpl = $this->createTemplate('helpers/modules_list/list.tpl');
-        $tpl->assign($this->tpl_vars);
-        $html = $tpl->fetch();
-        // Restore the previous context
-        Context::getContext()->override_controller_name_for_translations = $override_controller_name_for_translations;
-
-        return $html;
     }
 }

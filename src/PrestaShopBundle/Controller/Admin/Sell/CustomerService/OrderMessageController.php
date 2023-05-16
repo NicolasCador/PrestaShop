@@ -65,7 +65,7 @@ class OrderMessageController extends FrameworkBundleAdminController
         return $this->render('@PrestaShop/Admin/Sell/CustomerService/OrderMessage/index.html.twig', [
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'enableSidebar' => true,
-            'layoutTitle' => $this->trans('Order Messages', 'Admin.Navigation.Menu'),
+            'layoutTitle' => $this->trans('Order messages', 'Admin.Navigation.Menu'),
             'layoutHeaderToolbarBtn' => [
                 'add' => [
                     'href' => $this->generateUrl('admin_order_messages_create'),
@@ -101,7 +101,7 @@ class OrderMessageController extends FrameworkBundleAdminController
             $result = $formHandler->handle($form);
 
             if ($result->getIdentifiableObjectId()) {
-                $this->addFlash('success', $this->trans('Successful creation.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful creation', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_order_messages_index');
             }
@@ -112,7 +112,7 @@ class OrderMessageController extends FrameworkBundleAdminController
         return $this->render('@PrestaShop/Admin/Sell/CustomerService/OrderMessage/create.html.twig', [
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'enableSidebar' => true,
-            'layoutTitle' => $this->trans('Add new', 'Admin.Actions'),
+            'layoutTitle' => $this->trans('New order message', 'Admin.Navigation.Menu'),
             'orderMessageForm' => $form->createView(),
             'multistoreInfoTip' => $this->trans(
                 'Note that this feature is available in all shops context only. It will be added to all your stores.',
@@ -152,7 +152,7 @@ class OrderMessageController extends FrameworkBundleAdminController
             $result = $formHandler->handleFor($orderMessageId, $form);
 
             if ($result->getIdentifiableObjectId()) {
-                $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_order_messages_index');
             }
@@ -167,7 +167,7 @@ class OrderMessageController extends FrameworkBundleAdminController
         return $this->render('@PrestaShop/Admin/Sell/CustomerService/OrderMessage/edit.html.twig', [
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'enableSidebar' => true,
-            'layoutTitle' => sprintf($this->trans('Edit: %s', 'Admin.Actions'), $orderMessageName),
+            'layoutTitle' => $this->trans('Editing message %s', 'Admin.Navigation.Menu', [$orderMessageName]),
             'orderMessageForm' => $form->createView(),
         ]);
     }
@@ -189,7 +189,7 @@ class OrderMessageController extends FrameworkBundleAdminController
         try {
             $this->getCommandBus()->handle(new DeleteOrderMessageCommand($orderMessageId));
 
-            $this->addFlash('success', $this->trans('Successful deletion.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful deletion', 'Admin.Notifications.Success'));
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
         }
@@ -220,7 +220,7 @@ class OrderMessageController extends FrameworkBundleAdminController
 
             $this->addFlash(
                 'success',
-                $this->trans('The selection has been successfully deleted.', 'Admin.Notifications.Success')
+                $this->trans('The selection has been successfully deleted', 'Admin.Notifications.Success')
             );
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));

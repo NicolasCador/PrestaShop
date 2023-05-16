@@ -122,16 +122,20 @@ class SearchCore
      */
     public static $targetLengthMax;
 
-    const PS_SEARCH_MAX_WORDS_IN_TABLE = 100000; /* Max numer of words in ps_search_word, above which $coefs for target length will be everytime equal to 1 */
-    const PS_DEFAULT_SEARCH_MAX_WORD_LENGTH = 30; /* default max word length, for when we are not in fuzzy search mode */
-    const PS_SEARCH_ORDINATE_MIN = 0.5;
-    const PS_SEARCH_ORDINATE_MAX = -1;
-    const PS_SEARCH_ABSCISSA_MIN = 0.5;
-    const PS_SEARCH_ABSCISSA_MAX = 2;
-    const PS_DISTANCE_MAX = 8;
+    public const PS_SEARCH_MAX_WORDS_IN_TABLE = 100000; /* Max numer of words in ps_search_word, above which $coefs for target length will be everytime equal to 1 */
+    public const PS_DEFAULT_SEARCH_MAX_WORD_LENGTH = 30; /* default max word length, for when we are not in fuzzy search mode */
+    public const PS_SEARCH_ORDINATE_MIN = 0.5;
+    public const PS_SEARCH_ORDINATE_MAX = -1;
+    public const PS_SEARCH_ABSCISSA_MIN = 0.5;
+    public const PS_SEARCH_ABSCISSA_MAX = 2;
+    public const PS_DISTANCE_MAX = 8;
 
     public static function extractKeyWords($string, $id_lang, $indexation = false, $iso_code = false)
     {
+        if (null === $string) {
+            return [];
+        }
+
         $sanitizedString = Search::sanitize($string, $id_lang, $indexation, $iso_code, false);
         $words = explode(' ', $sanitizedString);
         if (strpos($string, '-') !== false) {
@@ -156,8 +160,7 @@ class SearchCore
 
     public static function sanitize($string, $id_lang, $indexation = false, $iso_code = false, $keepHyphens = false)
     {
-        $string = trim($string);
-        if (empty($string)) {
+        if (null === $string || empty($string = trim($string))) {
             return '';
         }
 
@@ -217,7 +220,7 @@ class SearchCore
         }
 
         // If the language is constituted with symbol and there is no "words", then split every chars
-        if (in_array($iso_code, ['zh', 'tw', 'ja']) && function_exists('mb_strlen')) {
+        if (in_array($iso_code, ['zh', 'tw', 'ja'])) {
             // Cut symbols from letters
             $symbols = '';
             $letters = '';

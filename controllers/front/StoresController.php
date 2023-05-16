@@ -25,6 +25,7 @@
  */
 class StoresControllerCore extends FrontController
 {
+    /** @var string */
     public $php_self = 'stores';
 
     /**
@@ -54,7 +55,7 @@ class StoresControllerCore extends FrontController
             foreach ($data_fields as $field_item) {
                 $field_item = trim($field_item);
                 if (!in_array($field_item, $ignore_field) && !empty($store[$field_item])) {
-                    $addr_out[] = ($field_item == 'city' && $state && isset($state->iso_code) && strlen($state->iso_code)) ?
+                    $addr_out[] = ($field_item == 'city' && $state && !empty($state->iso_code)) ?
                         $store[$field_item] . ', ' . $state->iso_code : $store[$field_item];
                     $data_fields_mod = true;
                 }
@@ -124,12 +125,12 @@ class StoresControllerCore extends FrontController
             $newnode->addAttribute('phone', $store['phone']);
             $newnode->addAttribute('fax', $store['fax']);
             $newnode->addAttribute('note', $store['note']);
-            $newnode->addAttribute('id_store', (int) $store['id_store']);
-            $newnode->addAttribute('has_store_picture', file_exists(_PS_STORE_IMG_DIR_ . (int) $store['id_store'] . '.jpg'));
-            $newnode->addAttribute('lat', (float) $store['latitude']);
-            $newnode->addAttribute('lng', (float) $store['longitude']);
+            $newnode->addAttribute('id_store', (string) (int) $store['id_store']);
+            $newnode->addAttribute('has_store_picture', (string) file_exists(_PS_STORE_IMG_DIR_ . (int) $store['id_store'] . '.jpg'));
+            $newnode->addAttribute('lat', (string) (float) $store['latitude']);
+            $newnode->addAttribute('lng', (string) (float) $store['longitude']);
             if (isset($store['distance'])) {
-                $newnode->addAttribute('distance', (int) $store['distance']);
+                $newnode->addAttribute('distance', (string) (int) $store['distance']);
             }
         }
 
@@ -166,13 +167,14 @@ class StoresControllerCore extends FrontController
         $stores = Store::getStores($this->context->language->id);
 
         $imageRetriever = new \PrestaShop\PrestaShop\Adapter\Image\ImageRetriever($this->context->link);
+        $attr = ['address1', 'address2', 'postcode', 'city', 'id_state', 'id_country'];
 
         foreach ($stores as &$store) {
             unset($store['active']);
             // Prepare $store.address
             $address = new Address();
             $store['address'] = [];
-            $attr = ['address1', 'address2', 'postcode', 'city', 'id_state', 'id_country'];
+
             foreach ($attr as $a) {
                 $address->{$a} = $store[$a];
                 $store['address'][$a] = $store[$a];

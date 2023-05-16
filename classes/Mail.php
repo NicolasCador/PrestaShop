@@ -92,19 +92,19 @@ class MailCore extends ObjectModel
     /**
      * Mail content type.
      */
-    const TYPE_HTML = 1;
-    const TYPE_TEXT = 2;
-    const TYPE_BOTH = 3;
+    public const TYPE_HTML = 1;
+    public const TYPE_TEXT = 2;
+    public const TYPE_BOTH = 3;
 
     /**
      * Send mail under SMTP server.
      */
-    const METHOD_SMTP = 2;
+    public const METHOD_SMTP = 2;
 
     /**
      * Disable mail, will return immediately after calling send method.
      */
-    const METHOD_DISABLE = 3;
+    public const METHOD_DISABLE = 3;
 
     /**
      * Send Email.
@@ -477,7 +477,7 @@ class MailCore extends ObjectModel
             $templateTxt .= strip_tags(
                 html_entity_decode(
                     Tools::file_get_contents($templatePath . $isoTemplate . '.txt'),
-                    null,
+                    ENT_COMPAT,
                     'utf-8'
                 )
             );
@@ -494,7 +494,9 @@ class MailCore extends ObjectModel
             );
 
             /* Create mail and attach differents parts */
-            $subject = '[' . strip_tags($configuration['PS_SHOP_NAME']) . '] ' . $subject;
+            if (Configuration::get('PS_MAIL_SUBJECT_PREFIX')) {
+                $subject = '[' . strip_tags($configuration['PS_SHOP_NAME']) . '] ' . $subject;
+            }
             $message->setSubject($subject);
 
             $message->setCharset('utf-8');
@@ -510,7 +512,7 @@ class MailCore extends ObjectModel
                 $message->setReplyTo($replyTo, ($replyToName !== '' ? $replyToName : null));
             }
 
-            if (false !== Configuration::get('PS_LOGO_MAIL') &&
+            if (false !== Configuration::get('PS_LOGO_MAIL', null, null, $idShop) &&
                 file_exists(_PS_IMG_DIR_ . Configuration::get('PS_LOGO_MAIL', null, null, $idShop))
             ) {
                 $logo = _PS_IMG_DIR_ . Configuration::get('PS_LOGO_MAIL', null, null, $idShop);
@@ -589,17 +591,17 @@ class MailCore extends ObjectModel
             $templateVars = array_merge($templateVars, $extraTemplateVars);
             $swift->registerPlugin(new Swift_Plugins_DecoratorPlugin([self::toPunycode($toPlugin) => $templateVars]));
             if ($configuration['PS_MAIL_TYPE'] == Mail::TYPE_BOTH ||
-                $configuration['PS_MAIL_TYPE'] == Mail::TYPE_TEXT
-            ) {
-                $message->addPart($templateTxt, 'text/plain', 'utf-8');
-            }
-            if ($configuration['PS_MAIL_TYPE'] == Mail::TYPE_BOTH ||
                 $configuration['PS_MAIL_TYPE'] == Mail::TYPE_HTML
             ) {
-                $message->addPart($templateHtml, 'text/html', 'utf-8');
+                $message->setBody($templateHtml, 'text/html', 'utf-8');
+                if ($configuration['PS_MAIL_TYPE'] == Mail::TYPE_BOTH) {
+                    $message->addPart($templateTxt, 'text/plain', 'utf-8');
+                }
+            } else {
+                $message->setBody($templateTxt, 'text/plain', 'utf-8');
             }
 
-            if ($fileAttachment && !empty($fileAttachment)) {
+            if (!empty($fileAttachment)) {
                 // Multiple attachments?
                 if (!is_array(current($fileAttachment))) {
                     $fileAttachment = [$fileAttachment];
@@ -844,9 +846,7 @@ class MailCore extends ObjectModel
         return str_replace(
             '"',
             '&quot;',
-            Tools::stripslashes(
-                (array_key_exists($key, $_LANGMAIL) && !empty($_LANGMAIL[$key])) ? $_LANGMAIL[$key] : $string
-            )
+            (array_key_exists($key, $_LANGMAIL) && !empty($_LANGMAIL[$key])) ? $_LANGMAIL[$key] : $string
         );
     }
 
@@ -854,9 +854,9 @@ class MailCore extends ObjectModel
     protected static function generateId($idstring = null)
     {
         $midparams = [
-            'utctime' => gmstrftime('%Y%m%d%H%M%S'),
+            'utctime' => date('YmdHis'),
             'randint' => mt_rand(),
-            'customstr' => (preg_match('/^(?<!\\.)[a-z0-9\\.]+(?!\\.)$/iD', $idstring) ? $idstring : 'swift'),
+            'customstr' => ($idstring !== null && preg_match('/^(?<!\\.)[a-z0-9\\.]+(?!\\.)$/iD', $idstring) ? $idstring : 'swift'),
             'hostname' => !empty($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : php_uname('n'),
         ];
 

@@ -23,11 +23,12 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 
+import FormSubmitButton from '@components/form-submit-button';
 import SupplierMap from './supplier-map';
 
 const {$} = window;
 
-$(document).ready(() => {
+$(() => {
   new window.prestashop.component.ChoiceTree('#supplier_shop_association').enableAutoCheckChildren();
   new window.prestashop.component.CountryStateSelectionToggler(
     SupplierMap.supplierCountrySelect,
@@ -54,4 +55,6 @@ $(document).ready(() => {
       createTokensOnBlur: true,
     },
   });
+
+  new FormSubmitButton();
 });

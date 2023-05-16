@@ -45,9 +45,9 @@ use PrestaShop\PrestaShop\Core\Domain\Currency\Query\GetReferenceCurrency;
 use PrestaShop\PrestaShop\Core\Domain\Currency\QueryResult\ReferenceCurrency;
 use PrestaShop\PrestaShop\Core\Domain\Currency\ValueObject\CurrencyId;
 use PrestaShop\PrestaShop\Core\Exception\CoreException;
-use PrestaShopBundle\Install\DatabaseDump;
 use RuntimeException;
 use Tests\Integration\Behaviour\Features\Context\SharedStorage;
+use Tests\Resources\DatabaseDump;
 
 class CurrencyFeatureContext extends AbstractDomainFeatureContext
 {
@@ -56,7 +56,7 @@ class CurrencyFeatureContext extends AbstractDomainFeatureContext
      */
     public static function restoreCurrenciesTablesBeforeFeature(): void
     {
-        static::restoreCurrenciesTables();
+        self::restoreCurrenciesTables();
     }
 
     /**
@@ -64,7 +64,7 @@ class CurrencyFeatureContext extends AbstractDomainFeatureContext
      */
     public static function restoreCurrenciesTablesAfterFeature(): void
     {
-        static::restoreCurrenciesTables();
+        self::restoreCurrenciesTables();
     }
 
     /**
@@ -72,7 +72,7 @@ class CurrencyFeatureContext extends AbstractDomainFeatureContext
      */
     public static function restoreCurrenciesTablesBeforeScenario(): void
     {
-        static::restoreCurrenciesTables();
+        self::restoreCurrenciesTables();
     }
 
     private static function restoreCurrenciesTables(): void

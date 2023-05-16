@@ -12,20 +12,17 @@ interface Window {
   update_success_msg: string;
   adminNotificationPushLink: string;
   baseAdminDir: string;
-  tokenAdminOrders: string;
-  tokenAdminCustomers: string;
-  tokenAdminCustomerThreads: string;
   // eslint-disable-next-line
   translate_javascripts: Record<string, any>;
   modalConfirmation: any;
   // eslint-disable-next-line
   ps_round: any;
-  Dropzone: any;
+  Dropzone: Dropzone;
   data: any;
   pstooltip: any;
+  permissionsMessages: Array<string>;
 }
 
-/* eslint-disable */
 interface JQuery {
   tableDnD(params: unknown): void;
   tokenfield: any;
@@ -36,14 +33,11 @@ interface JQuery {
   fancybox: any;
   growl: any;
   pstooltip: any;
-  passy(params: unknown, length?: number): void;
   serializeJSON: any;
 }
-/* eslint-disable */
 
 interface JQueryStatic {
   tableDnD: TableDnD;
-  passy: any;
   tokenfield: any;
   clickableDropdown: () => void;
   datetimepicker: any;
@@ -76,29 +70,24 @@ interface PrestashopWindow {
   instance: any;
 }
 
-interface RegExpPositions extends RegExpExecArray {
-  rowId: string;
-  oldPosition: string;
-}
-
 type FetchResponse = Record<string, any>;
 
 type OptionsObject = FetchResponse;
 
-type VTags = Vue & { 
+type VTags = {
   add: (tag: any) => void;
   tag: any;
 };
 
-type VTagsInput = Vue & { 
+type VTagsInput = {
   value: any;
 };
 
-type VCheckbox = Vue & { 
+type VCheckbox = {
   $data: VCheckboxDatas;
 };
 
-type VCheckboxDatas = Vue & { 
+type VCheckboxDatas = {
   checked: boolean;
 };
 
@@ -106,12 +95,16 @@ interface SelectorsMap extends Record<string, string> {
   [key: string]: string;
 }
 
-type VTransModal = Vue & { 
+type VTransModal = {
   showModal: () => void;
   $once: any;
 };
 
-type VPrincipal = Vue & { 
+type VPrincipal = {
   saveTranslations: () => void;
   edited: () => boolean;
 };
+
+interface KeyStringRecord extends Dropzone.DropzoneOptions {
+  [key: string]: any;
+}

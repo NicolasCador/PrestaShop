@@ -6,7 +6,7 @@ $component-name: delta-quantity;
   flex-direction: row;
 
   &-quantity {
-    margin-right: 20px;
+    min-width: 120px;
     font-weight: $font-weight-semibold;
 
     .quantity-update {
@@ -29,13 +29,28 @@ $component-name: delta-quantity;
   }
 
   &-delta {
-    max-width: 100px;
-    margin: 0 20px;
+    min-width: 60px;
   }
 
-  span,
-  label {
+  span {
     margin: 0;
     line-height: 39px;
+  }
+
+  label {
+    min-width: 240px;
+    margin: 0 0.3125rem;
+    overflow: hidden;
+    line-height: 39px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .modify-all-shops {
+    text-align: right;
+
+    label {
+      line-height: normal;
+    }
   }
 }

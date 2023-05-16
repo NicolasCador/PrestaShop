@@ -33,13 +33,13 @@
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
+  import {defineComponent} from 'vue';
   import ProductsActions from './products-actions.vue';
   import ProductsTable from './products-table.vue';
 
-  const DEFAULT_SORT = 'asc';
+  const DEFAULT_SORT = 'desc';
 
-  export default Vue.extend({
+  export default defineComponent({
     computed: {
       isLoading(): boolean {
         return this.$store.state.isLoading;
@@ -53,7 +53,7 @@
     mounted() {
       this.$store.dispatch('updatePageIndex', 1);
       this.$store.dispatch('updateKeywords', []);
-      this.$store.dispatch('updateOrder', 'product');
+      this.$store.dispatch('updateOrder', 'product_id');
       this.$store.dispatch('isLoading');
       this.$emit('resetFilters');
       this.$emit('fetch', DEFAULT_SORT);

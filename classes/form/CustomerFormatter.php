@@ -23,7 +23,7 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomerFormatterCore implements FormFormatterInterface
 {
@@ -182,7 +182,8 @@ class CustomerFormatterCore implements FormFormatterInterface
                         'Shop.Forms.Labels'
                     )
                 )
-                ->setRequired($this->password_is_required);
+                ->setRequired($this->password_is_required)
+                ->setAutocompleteAttribute('new-password');
         }
 
         if ($this->ask_for_new_password) {
@@ -195,7 +196,8 @@ class CustomerFormatterCore implements FormFormatterInterface
                         [],
                         'Shop.Forms.Labels'
                     )
-                );
+                )
+                ->setAutocompleteAttribute('new-password');
         }
 
         if ($this->ask_for_birthdate) {

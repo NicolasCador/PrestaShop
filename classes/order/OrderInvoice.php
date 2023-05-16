@@ -25,9 +25,9 @@
  */
 class OrderInvoiceCore extends ObjectModel
 {
-    const TAX_EXCL = 0;
-    const TAX_INCL = 1;
-    const DETAIL = 2;
+    public const TAX_EXCL = 0;
+    public const TAX_INCL = 1;
+    public const DETAIL = 2;
 
     /** @var int */
     public $id_order;
@@ -158,7 +158,7 @@ class OrderInvoiceCore extends ObjectModel
             WHERE number = ' . (int) $id_invoice
         );
 
-        return $id_order_invoice ? new OrderInvoice($id_order_invoice) : false;
+        return $id_order_invoice ? new OrderInvoice((int) $id_order_invoice) : false;
     }
 
     /**
@@ -242,9 +242,6 @@ class OrderInvoiceCore extends ObjectModel
             $row['total_price_tax_excl_including_ecotax'] = $row['total_price_tax_excl'];
             $row['total_price_tax_incl_including_ecotax'] = $row['total_price_tax_incl'];
 
-            if ($customized_datas) {
-                Product::addProductCustomizationPrice($row, $customized_datas);
-            }
             /* Stock product */
             $result_array[(int) $row['id_order_detail']] = $row;
         }
@@ -257,8 +254,6 @@ class OrderInvoiceCore extends ObjectModel
         $product['customizedDatas'] = null;
         if (isset($customized_datas[$product['product_id']][$product['product_attribute_id']])) {
             $product['customizedDatas'] = $customized_datas[$product['product_id']][$product['product_attribute_id']];
-        } else {
-            $product['customizationQuantityTotal'] = 0;
         }
     }
 
@@ -305,7 +300,7 @@ class OrderInvoiceCore extends ObjectModel
         $product['image_size'] = null;
 
         if ($id_image) {
-            $product['image'] = new Image($id_image);
+            $product['image'] = new Image((int) $id_image);
         }
     }
 
@@ -444,6 +439,7 @@ class OrderInvoiceCore extends ObjectModel
 
             $sum_of_split_taxes = 0;
             $sum_of_tax_bases = 0;
+            /** @var array{id_tax: int, rate: float, total_amount: float} $row */
             foreach ($shipping_breakdown as &$row) {
                 if (Configuration::get('PS_ATCP_SHIPWRAP')) {
                     $row['total_tax_excl'] = Tools::ps_round($row['total_amount'] / $row['rate'] * 100, Context::getContext()->getComputingPrecision(), $this->getOrder()->round_mode);
@@ -505,6 +501,7 @@ class OrderInvoiceCore extends ObjectModel
         $sum_of_split_taxes = 0;
         $sum_of_tax_bases = 0;
         $total_tax_rate = 0;
+        /** @var array{id_tax: int, rate: float, total_amount: float} $row */
         foreach ($wrapping_breakdown as &$row) {
             if (Configuration::get('PS_ATCP_SHIPWRAP')) {
                 $row['total_tax_excl'] = Tools::ps_round($row['total_amount'] / $row['rate'] * 100, Context::getContext()->getComputingPrecision(), $this->getOrder()->round_mode);
@@ -562,6 +559,7 @@ class OrderInvoiceCore extends ObjectModel
 
         $priceDisplayPrecision = Context::getContext()->getComputingPrecision();
         $taxes = [];
+        /** @var array{rate: float, ecotax_tax_excl: float, ecotax_tax_incl: float} $row */
         foreach ($result as $row) {
             if ($row['ecotax_tax_excl'] > 0) {
                 $row['ecotax_tax_incl'] = Tools::ps_round($row['ecotax_tax_excl'] + ($row['ecotax_tax_excl'] * $row['rate'] / 100), $priceDisplayPrecision);

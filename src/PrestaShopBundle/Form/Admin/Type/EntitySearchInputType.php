@@ -33,7 +33,7 @@ use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\OptionsResolver\Options;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * This form type is used for a OneToMany (or ManyToMany) association, it allows to search a list of entities
@@ -83,11 +83,6 @@ class EntitySearchInputType extends CollectionType
 
             // Default entry type that matches the default template from the prestashop ui kit form theme
             'entry_type' => EntityItemType::class,
-            'entry_options' => [
-                // Force block prefix to easily profit from the UI kit theme (without changing it in the entity type itself)
-                'block_prefix' => 'entity_item',
-            ],
-
             // This is an optional entity type that can be useful to identify which type of entity is searched
             'entity_type' => null,
             // The remote url is used internally by a javascript component which performs a request when search input is used
@@ -119,8 +114,10 @@ class EntitySearchInputType extends CollectionType
 
             // Empty state wording
             'empty_state' => null,
-        ]);
 
+            // field name in record dataset which should be used to show suggestion in search dropdown
+            'suggestion_field' => 'name',
+        ]);
         $resolver->setAllowedTypes('allow_search', ['bool']);
         $resolver->setAllowedTypes('search_attr', ['array']);
         $resolver->setAllowedTypes('list_attr', ['array']);
@@ -137,14 +134,13 @@ class EntitySearchInputType extends CollectionType
 
         $resolver->setAllowedTypes('remove_modal', ['array', 'null']);
         $resolver->setNormalizer('remove_modal', function (Options $options, $value) {
-            $resolver = $this->getRemoveModalResolver();
-
-            return $resolver->resolve($value ?? []);
+            return $this->getRemoveModalResolver()->resolve($value ?? []);
         });
 
         $resolver->setAllowedTypes('layout', ['string']);
         $resolver->setAllowedValues('layout', [static::LIST_LAYOUT, static::TABLE_LAYOUT]);
         $resolver->setAllowedTypes('empty_state', ['string', 'null']);
+        $resolver->setAllowedTypes('suggestion_field', ['string', 'null']);
     }
 
     /**
@@ -188,6 +184,7 @@ class EntitySearchInputType extends CollectionType
             'empty_state' => $options['empty_state'],
             'identifier_field' => $options['identifier_field'],
             'filtered_identities' => $options['filtered_identities'],
+            'suggestion_field' => $options['suggestion_field'],
         ]);
     }
 

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -146,7 +145,7 @@ final class Currency implements CurrencyInterface
             throw new LocalizationException(sprintf('Unknown display name: "%s"', print_r($countContext, true)));
         }
 
-        return $this->displayNames[$countContext] ?? null;
+        return $this->displayNames[$countContext] ?? $this->isoCode;
     }
 
     /**

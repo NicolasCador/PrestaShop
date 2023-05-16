@@ -30,6 +30,7 @@
   >
     <StockHeader />
     <Search
+      ref="search"
       @search="onSearch"
       @applyFilter="applyFilter"
     />
@@ -54,15 +55,17 @@
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
+  import {defineComponent} from 'vue';
   import PSPagination from '@app/widgets/ps-pagination.vue';
   import StockHeader from './header/stock-header.vue';
-  import Search from './header/search.vue';
+  import Search, {SearchInstanceType} from './header/search.vue';
   import LowFilter from './header/filters/low-filter.vue';
+  import {FiltersInstanceType} from './header/filters.vue';
 
   /* eslint-disable camelcase */
   export interface StockFilters {
     active?: string;
+    suppliers?: Array<number>;
     categories?: Array<number>;
     date_add?: Array<any>;
     id_employee?: Array<number>;
@@ -77,7 +80,7 @@
 
   const FIRST_PAGE = 1;
 
-  export default Vue.extend({
+  export default defineComponent({
     name: 'App',
     computed: {
       isReady(): boolean {
@@ -92,15 +95,28 @@
       isOverview(): boolean {
         return this.$route.name === 'overview';
       },
+      isMovements(): boolean {
+        return this.$route.name === 'movements';
+      },
+      searchRef(): SearchInstanceType {
+        return <SearchInstanceType>(this.$refs.search);
+      },
+      filtersRef(): FiltersInstanceType {
+        return this.searchRef?.filtersRef;
+      },
+    },
+    beforeMount() {
+      this.$store.dispatch('getTranslations');
     },
     methods: {
       onPageChanged(pageIndex: number): void {
         this.$store.dispatch('updatePageIndex', pageIndex);
-        this.fetch('asc');
+        this.fetch(this.$store.state.sort);
       },
       fetch(sortDirection?: string): void {
-        const action = this.$route.name === 'overview' ? 'getStock' : 'getMovements';
+        const action = this.isOverview ? 'getStock' : 'getMovements';
         const sorting = sortDirection === 'desc' ? ' desc' : '';
+
         this.$store.dispatch('isLoading');
 
         this.filters = {
@@ -124,6 +140,7 @@
         this.fetch();
       },
       resetFilters(): void {
+        this.filtersRef?.reset();
         this.filters = {};
       },
       resetPagination(): void {

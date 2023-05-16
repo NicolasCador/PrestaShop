@@ -28,26 +28,25 @@ import ComponentsMap from '@components/components-map';
 import ConfirmModal from '@components/modal';
 // @ts-ignore-next-line
 import Bloodhound from 'typeahead.js';
+import {isUndefined} from '@PSTypes/typeguard';
 
 const EntitySearchInputMap = ComponentsMap.entitySearchInput;
 
 type RemoveFunction = (item: any) => void;
 type SelectFunction = ($node: JQuery, item: any) => void;
+type SuggestionFunction = (entity: any) => string;
 export interface EntitySearchInputOptions extends OptionsObject {
   prototypeTemplate: string,
   prototypeIndex: string,
   prototypeMapping: OptionsObject,
   identifierField: string;
-
   allowDelete: boolean,
   dataLimit: number,
   minLength: number,
   remoteUrl: string,
   filterSelected: boolean,
   filteredIdentities: Array<string>,
-
   removeModal: ModalOptions,
-
   searchInputSelector: string,
   entitiesContainerSelector: string,
   listContainerSelector: string,
@@ -55,9 +54,10 @@ export interface EntitySearchInputOptions extends OptionsObject {
   entityDeleteSelector: string,
   emptyStateSelector: string,
   queryWildcard: string,
-
   onRemovedContent: RemoveFunction | undefined,
   onSelectedContent: SelectFunction | undefined,
+  suggestionTemplate: SuggestionFunction | undefined,
+  extraQueryParams?: () => Record<string, string>,
 }
 export interface ModalOptions extends OptionsObject {
   id: string;
@@ -167,6 +167,7 @@ export default class EntitySearchInput {
   private buildOptions(options: OptionsObject): void {
     const inputOptions = options || {};
     const defaultOptions: OptionsObject = {
+      suggestionField: 'name',
       prototypeTemplate: undefined,
       prototypeIndex: '__index__',
       prototypeMapping: {
@@ -175,7 +176,6 @@ export default class EntitySearchInput {
         image: '__image__',
       },
       identifierField: 'id',
-
       allowDelete: true,
       dataLimit: 0,
       minLength: 2,
@@ -205,6 +205,11 @@ export default class EntitySearchInput {
       // These are configurable callbacks
       onRemovedContent: undefined,
       onSelectedContent: undefined,
+      responseTransformer: (response: any) => response || [],
+
+      // Template function
+      suggestionTemplate: undefined,
+      extraQueryParams: undefined,
     };
 
     Object.keys(defaultOptions).forEach((optionName) => {
@@ -266,6 +271,7 @@ export default class EntitySearchInput {
 
     // For now adapt the display based on the allowDelete option
     const $entityDelete = $(this.options.entityDeleteSelector, this.$entitiesContainer);
+    //'!!' converts option to bool (because if its 1 or 0, jquery toggle works differently than with true/false)
     $entityDelete.toggle(!!this.options.allowDelete);
   }
 
@@ -279,15 +285,7 @@ export default class EntitySearchInput {
       value: this.options.identifierField,
       minLength: this.options.minLength,
       templates: {
-        suggestion: (entity: any) => {
-          let entityImage = '';
-
-          if (Object.prototype.hasOwnProperty.call(entity, 'image')) {
-            entityImage = `<img src="${entity.image}" /> `;
-          }
-
-          return `<div class="search-suggestion">${entityImage}${entity.name}</div>`;
-        },
+        suggestion: (entity: any) => this.showSuggestion(entity),
       },
       onSelect: (selectedItem: any) => {
         // When limit is one we cannot select additional elements so we replace them instead
@@ -307,6 +305,20 @@ export default class EntitySearchInput {
     }
   }
 
+  private showSuggestion(entity: any): string {
+    if (!isUndefined(this.options.suggestionTemplate)) {
+      return this.options.suggestionTemplate(entity);
+    }
+
+    let entityImage = '';
+
+    if (Object.prototype.hasOwnProperty.call(entity, 'image')) {
+      entityImage = `<img src="${entity.image}" /> `;
+    }
+
+    return `<div class="search-suggestion">${entityImage}${entity[this.options.suggestionField]}</div>`;
+  }
+
   /**
    * Build the Bloodhound remote source which will call the API. The placeholder to
    * inject the query search parameter is __QUERY__
@@ -322,16 +334,32 @@ export default class EntitySearchInput {
       },
       remote: {
         url: this.options.remoteUrl,
+        replace: (query: string, searchPhrase: string) => {
+          // need to replace wildcard manually, because here we are overriding the default replace function
+          const url = query.replace(this.options.queryWildcard, searchPhrase);
+
+          if (!isUndefined(this.options.extraQueryParams)) {
+            // this allows appending extra parameters to the query, such as shopId
+            const extraParams = this.options.extraQueryParams();
+            const encodedExtraParams = Object
+              .keys(extraParams)
+              .map((key: string) => `${key}=${encodeURIComponent(extraParams[key])}`)
+              .join('&');
+
+            return `${url}&${encodedExtraParams}`;
+          }
+
+          return url;
+        },
         cache: false,
-        wildcard: this.options.queryWildcard,
         transform: (response: any) => {
           if (!response) {
             return [];
           }
-
+          const transformedResponse = this.options.responseTransformer(response);
           const selectedIds: string[] = this.getSelectedIds();
           const suggestedItems: any[] = [];
-          response.forEach((responseItem: any) => {
+          transformedResponse.forEach((responseItem: any) => {
             // Force casting to string to avoid inequality with number IDs because of type
             const responseIdentifier: string = String(responseItem[this.options.identifierField]);
             const isIdContained = this.options.filterSelected && selectedIds.includes(responseIdentifier);

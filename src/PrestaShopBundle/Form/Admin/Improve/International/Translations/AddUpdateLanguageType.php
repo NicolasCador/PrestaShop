@@ -29,7 +29,7 @@ namespace PrestaShopBundle\Form\Admin\Improve\International\Translations;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Class AddUpdateLanguageType is responsible for building add / update language form
@@ -63,10 +63,7 @@ class AddUpdateLanguageType extends TranslatorAwareType
     {
         $builder->add('iso_localization_pack', ChoiceType::class, [
             'label' => $this->trans('Please select the language you want to add or update', 'Admin.International.Feature'),
-            'attr' => [
-                'data-minimumResultsForSearch' => '7',
-                'data-toggle' => 'select2',
-            ],
+            'autocomplete' => true,
             'choices' => [
                 $this->trans('Update a language', 'Admin.International.Feature') => $this->getLocaleChoices(),
                 $this->trans('Add a language', 'Admin.International.Feature') => $this->nonInstalledLocalizationChoices,

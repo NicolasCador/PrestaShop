@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -24,6 +23,7 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
+
 use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 
 abstract class AbstractAssetManagerCore
@@ -33,9 +33,9 @@ abstract class AbstractAssetManagerCore
     protected $configuration;
     protected $list = [];
 
-    const DEFAULT_MEDIA = 'all';
-    const DEFAULT_PRIORITY = 50;
-    const DEFAULT_JS_POSITION = 'bottom';
+    public const DEFAULT_MEDIA = 'all';
+    public const DEFAULT_PRIORITY = 50;
+    public const DEFAULT_JS_POSITION = 'bottom';
 
     public function __construct(array $directories, ConfigurationInterface $configuration)
     {

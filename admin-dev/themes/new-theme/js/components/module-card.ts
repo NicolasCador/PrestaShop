@@ -22,6 +22,7 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
+import {EventEmitter} from 'events';
 import ConfirmModal from '@components/modal';
 import ComponentsMap from './components-map';
 
@@ -29,29 +30,8 @@ const ModuleCardMap = ComponentsMap.moduleCard;
 
 const {$} = window;
 
-const BOEvent = {
-  on(eventName: string, callback: (event: Event) => void, context: any) {
-    document.addEventListener(eventName, (event) => {
-      if (typeof context !== 'undefined') {
-        callback.call(context, event);
-      } else {
-        callback(event);
-      }
-    });
-  },
-
-  emitEvent(eventName: string, eventType: string, datas: JQuery) {
-    const event = new CustomEvent(eventType, <any>datas);
-    // true values stand for: can bubble, and is cancellable
-    event.initCustomEvent(eventName, true, true, datas);
-    document.dispatchEvent(event);
-  },
-};
-
 /**
  * Class is responsible for handling Module Card behavior
- *
- * This is a port of admin-dev/themes/default/js/bundle/module/module_card.js
  */
 export default class ModuleCard {
   moduleActionMenuLinkSelector: string;
@@ -72,9 +52,9 @@ export default class ModuleCard {
 
   moduleActionMenuUpdateLinkSelector: string;
 
-  moduleItemListSelector: string;
+  moduleActionMenuDeleteLinkSelector: string;
 
-  moduleItemGridSelector: string;
+  moduleItemListSelector: string;
 
   moduleItemActionsSelector: string;
 
@@ -86,6 +66,10 @@ export default class ModuleCard {
 
   forceDeletionOption: string;
 
+  private pendingRequest: boolean = false;
+
+  private eventEmitter: EventEmitter;
+
   constructor() {
     /* Selectors for module action links (uninstall, reset, etc...) to add a confirm popin */
     this.moduleActionMenuLinkSelector = 'button.module_action_menu_';
@@ -93,12 +77,12 @@ export default class ModuleCard {
     this.moduleActionMenuEnableLinkSelector = 'button.module_action_menu_enable';
     this.moduleActionMenuUninstallLinkSelector = 'button.module_action_menu_uninstall';
     this.moduleActionMenuDisableLinkSelector = 'button.module_action_menu_disable';
-    this.moduleActionMenuEnableMobileLinkSelector = 'button.module_action_menu_enable_mobile';
-    this.moduleActionMenuDisableMobileLinkSelector = 'button.module_action_menu_disable_mobile';
+    this.moduleActionMenuEnableMobileLinkSelector = 'button.module_action_menu_enableMobile';
+    this.moduleActionMenuDisableMobileLinkSelector = 'button.module_action_menu_disableMobile';
     this.moduleActionMenuResetLinkSelector = 'button.module_action_menu_reset';
     this.moduleActionMenuUpdateLinkSelector = 'button.module_action_menu_upgrade';
+    this.moduleActionMenuDeleteLinkSelector = 'button.module_action_menu_delete';
     this.moduleItemListSelector = '.module-item-list';
-    this.moduleItemGridSelector = '.module-item-grid';
     this.moduleItemActionsSelector = '.module-actions';
 
     /* Selectors only for modal buttons */
@@ -106,6 +90,8 @@ export default class ModuleCard {
     this.moduleActionModalResetLinkSelector = 'a.module_action_modal_reset';
     this.moduleActionModalUninstallLinkSelector = 'a.module_action_modal_uninstall';
     this.forceDeletionOption = '#force_deletion';
+
+    this.eventEmitter = window.prestashop.component.EventEmitter;
 
     this.initActionButtons();
   }
@@ -164,6 +150,18 @@ export default class ModuleCard {
 
     $(document).on(
       'click',
+      this.moduleActionMenuDeleteLinkSelector,
+      function () {
+        return (
+          self.dispatchPreEvent('delete', this)
+          && self.confirmAction('delete', this)
+          && self.requestToController('delete', $(this))
+        );
+      },
+    );
+
+    $(document).on(
+      'click',
       this.moduleActionMenuDisableLinkSelector,
       function () {
         return (
@@ -179,9 +177,9 @@ export default class ModuleCard {
       this.moduleActionMenuEnableMobileLinkSelector,
       function () {
         return (
-          self.dispatchPreEvent('enable_mobile', this)
-          && self.confirmAction('enable_mobile', this)
-          && self.requestToController('enable_mobile', $(this))
+          self.dispatchPreEvent('enableMobile', this)
+          && self.confirmAction('enableMobile', this)
+          && self.requestToController('enableMobile', $(this))
         );
       },
     );
@@ -191,9 +189,9 @@ export default class ModuleCard {
       this.moduleActionMenuDisableMobileLinkSelector,
       function () {
         return (
-          self.dispatchPreEvent('disable_mobile', this)
-          && self.confirmAction('disable_mobile', this)
-          && self.requestToController('disable_mobile', $(this))
+          self.dispatchPreEvent('disableMobile', this)
+          && self.confirmAction('disableMobile', this)
+          && self.requestToController('disableMobile', $(this))
         );
       },
     );
@@ -315,14 +313,6 @@ export default class ModuleCard {
     );
   }
 
-  getModuleItemSelector(): string {
-    if ($(this.moduleItemListSelector).length) {
-      return this.moduleItemListSelector;
-    }
-
-    return this.moduleItemGridSelector;
-  }
-
   confirmAction(action: string, element: string): boolean {
     const modal = $(
       ComponentsMap.confirmModal($(element).data('confirm_modal')),
@@ -352,30 +342,36 @@ export default class ModuleCard {
     return event.result !== false; // explicit false must be set from handlers to stop propagation of the click event.
   }
 
+  hasPendingRequest(): boolean {
+    return this.pendingRequest;
+  }
+
   requestToController(
     action: string,
     element: JQuery,
     forceDeletion: string | boolean = false,
-    disableCacheClear: string | boolean = false,
     callback = () => true,
   ): boolean {
-    const self = this;
-    const jqElementObj = element.closest(this.moduleItemActionsSelector);
+    if (this.pendingRequest) {
+      $.growl.warning({
+        message: window.translate_javascripts['An action is already in progress please wait for it to finish.'],
+      });
+      return false;
+    }
+
+    this.pendingRequest = true;
+
+    let jqElementObj = element.closest(this.moduleItemActionsSelector);
     const form = element.closest('form');
     const spinnerObj = $(
       '<button class="btn-primary-reverse onclick unbind spinner "></button>',
     );
     const url = `//${window.location.host}${form.attr('action')}`;
     const actionParams = form.serializeArray();
+    let refreshNeeded = false;
 
     if (forceDeletion === 'true' || forceDeletion === true) {
       actionParams.push({name: 'actionParams[deletion]', value: 'true'});
-    }
-    if (disableCacheClear === 'true' || disableCacheClear === true) {
-      actionParams.push({
-        name: 'actionParams[cacheClearEnabled]',
-        value: 'false',
-      });
     }
 
     $.ajax({
@@ -414,7 +410,12 @@ export default class ModuleCard {
           duration: 6000,
         });
 
-        const alteredSelector = self.getModuleItemSelector().replace('.', '');
+        if (result[moduleTechName].refresh_needed === true) {
+          refreshNeeded = true;
+          return;
+        }
+
+        const alteredSelector = this.moduleItemListSelector.replace('.', '');
         let mainElement = null;
 
         if (action === 'uninstall') {
@@ -422,29 +423,37 @@ export default class ModuleCard {
           mainElement.attr('data-installed', '0');
           mainElement.attr('data-active', '0');
 
-          BOEvent.emitEvent('Module Uninstalled', 'CustomEvent', mainElement);
+          this.eventEmitter.emit('Module Uninstalled', mainElement);
         } else if (action === 'disable') {
           mainElement = jqElementObj.closest(`.${alteredSelector}`);
           mainElement.addClass(`${alteredSelector}-isNotActive`);
           mainElement.attr('data-active', '0');
 
-          BOEvent.emitEvent('Module Disabled', 'CustomEvent', mainElement);
+          this.eventEmitter.emit('Module Disabled', mainElement);
         } else if (action === 'enable') {
           mainElement = jqElementObj.closest(`.${alteredSelector}`);
           mainElement.removeClass(`${alteredSelector}-isNotActive`);
           mainElement.attr('data-active', '1');
 
-          BOEvent.emitEvent('Module Enabled', 'CustomEvent', mainElement);
+          this.eventEmitter.emit('Module Enabled', mainElement);
         } else if (action === 'install') {
           mainElement = jqElementObj.closest(`.${alteredSelector}`);
           mainElement.attr('data-installed', '1');
           mainElement.attr('data-active', '1');
           mainElement.removeClass(`${alteredSelector}-isNotActive`);
 
-          BOEvent.emitEvent('Module Installed', 'CustomEvent', mainElement);
+          this.eventEmitter.emit('Module Installed', mainElement);
+        } else if (action === 'update' || action === 'upgrade') { // because the action is update on ModuleManager button and upgrade on bulk actions
+          mainElement = jqElementObj.closest(`.${alteredSelector}`);
+
+          this.eventEmitter.emit('Module Upgraded', mainElement);
         };
 
-        jqElementObj.replaceWith(result[moduleTechName].action_menu_html);
+        // Since we replace the DOM content
+        // we need to update the jquery object reference to target the new content,
+        // and we need to hide the new content which is not hidden by default
+        jqElementObj = $(result[moduleTechName].action_menu_html).replaceAll(jqElementObj);
+        jqElementObj.hide();
       })
       .fail(() => {
         const moduleItem = jqElementObj.closest('module-item-list');
@@ -455,8 +464,14 @@ export default class ModuleCard {
         });
       })
       .always(() => {
+        if (refreshNeeded) {
+          document.location.reload();
+          return;
+        }
         jqElementObj.fadeIn();
         spinnerObj.remove();
+        this.pendingRequest = false;
+
         if (callback) {
           callback();
         }

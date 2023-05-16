@@ -25,6 +25,7 @@
  */
 use Defuse\Crypto\Key;
 use PrestaShop\PrestaShop\Core\Exception\CoreException;
+use PrestaShop\PrestaShop\Core\Http\CookieOptions;
 use PrestaShop\PrestaShop\Core\Session\SessionInterface;
 
 /**
@@ -32,6 +33,8 @@ use PrestaShop\PrestaShop\Core\Session\SessionInterface;
  * @property int $id_customer
  * @property int $id_employee
  * @property int $id_lang
+ * @property int $id_guest
+ * @property int|null $id_connections
  * @property bool $is_guest
  * @property bool $logged
  * @property string $passwd
@@ -42,15 +45,22 @@ use PrestaShop\PrestaShop\Core\Session\SessionInterface;
  */
 class CookieCore
 {
-    const SAMESITE_NONE = 'None';
-    const SAMESITE_LAX = 'Lax';
-    const SAMESITE_STRICT = 'Strict';
-
-    const SAMESITE_AVAILABLE_VALUES = [
-        self::SAMESITE_NONE => self::SAMESITE_NONE,
-        self::SAMESITE_LAX => self::SAMESITE_LAX,
-        self::SAMESITE_STRICT => self::SAMESITE_STRICT,
-    ];
+    /**
+     * @deprecated since 9.0 use CookieOptions constants instead.
+     */
+    public const SAMESITE_NONE = CookieOptions::SAMESITE_NONE;
+    /**
+     * @deprecated since 9.0 use CookieOptions constants instead.
+     */
+    public const SAMESITE_LAX = CookieOptions::SAMESITE_LAX;
+    /**
+     * @deprecated since 9.0 use CookieOptions constants instead.
+     */
+    public const SAMESITE_STRICT = CookieOptions::SAMESITE_STRICT;
+    /**
+     * @deprecated since 9.0 use CookieOptions constants instead.
+     */
+    public const SAMESITE_AVAILABLE_VALUES = CookieOptions::SAMESITE_AVAILABLE_VALUES;
 
     /** @var array Contain cookie content in a key => value format */
     protected $_content = [];
@@ -83,6 +93,9 @@ class CookieCore
 
     /** @var bool */
     protected $_secure = false;
+
+    /** @var SessionInterface|null */
+    protected $session = null;
 
     /**
      * Get data if the cookie exists and else initialize an new one.
@@ -131,9 +144,13 @@ class CookieCore
      */
     protected function getDomain($shared_urls = null)
     {
-        $r = '!(?:(\w+)://)?(?:(\w+)\:(\w+)@)?([^/:]+)?(?:\:(\d*))?([^#?]+)?(?:\?([^#]+))?(?:#(.+$))?!i';
+        $httpHost = Tools::getHttpHost(false, false);
+        if (!$httpHost) {
+            return false;
+        }
 
-        if (!preg_match($r, Tools::getHttpHost(false, false), $out) || !isset($out[4])) {
+        $r = '!(?:(\w+)://)?(?:(\w+)\:(\w+)@)?([^/:]+)?(?:\:(\d*))?([^#?]+)?(?:\?([^#]+))?(?:#(.+$))?!i';
+        if (!preg_match($r, $httpHost, $out)) {
             return false;
         }
 
@@ -142,7 +159,7 @@ class CookieCore
             '{2}((25[0-5]|2[0-4][0-9]|[1]{1}[0-9]{2}|[1-9]{1}[0-9]|[0-9]){1}))$/', $out[4])) {
             return false;
         }
-        if (!strstr(Tools::getHttpHost(false, false), '.')) {
+        if (!strstr($httpHost, '.')) {
             return false;
         }
 
@@ -233,45 +250,6 @@ class CookieCore
             $this->_modified = true;
         }
         unset($this->_content[$key]);
-    }
-
-    /**
-     * Check customer informations saved into cookie and return customer validity.
-     *
-     * @deprecated as of version 1.5 use Customer::isLogged() instead
-     *
-     * @return bool customer validity
-     */
-    public function isLogged($withGuest = false)
-    {
-        Tools::displayAsDeprecated('Use Customer::isLogged() instead');
-        if (!$withGuest && $this->is_guest == 1) {
-            return false;
-        }
-
-        /* Customer is valid only if it can be load and if cookie password is the same as database one */
-        if ($this->logged == true && $this->id_customer && Validate::isUnsignedId($this->id_customer) && Customer::checkPassword((int) ($this->id_customer), $this->passwd)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Check employee informations saved into cookie and return employee validity.
-     *
-     * @deprecated as of version 1.5 use Employee::isLoggedBack() instead
-     *
-     * @return bool employee validity
-     */
-    public function isLoggedBack()
-    {
-        Tools::displayAsDeprecated('Use Employee::isLoggedBack() instead');
-        /* Employee is valid only if it can be load and if cookie password is the same as database one */
-        return $this->id_employee
-            && Validate::isUnsignedId($this->id_employee)
-            && Employee::checkPassword((int) $this->id_employee, $this->passwd)
-            && (!isset($this->_content['remote_addr']) || $this->_content['remote_addr'] == ip2long(Tools::getRemoteAddr()) || !Configuration::get('PS_COOKIE_CHECKIP'));
     }
 
     /**
@@ -375,26 +353,17 @@ class CookieCore
      *
      * @return bool Indicates whether the Cookie was successfully set
      *
-     * @deprecated 1.7.0
-     */
-    protected function _setcookie($cookie = null)
-    {
-        return $this->encryptAndSetCookie($cookie);
-    }
-
-    /**
-     * Encrypt and set the Cookie.
-     *
-     * @param string|null $cookie Cookie content
-     *
-     * @return bool Indicates whether the Cookie was successfully set
-     *
      * @since 1.7.0
      */
     protected function encryptAndSetCookie($cookie = null)
     {
         // Check if the content fits in the Cookie
-        $length = (ini_get('mbstring.func_overload') & 2) ? mb_strlen($cookie, ini_get('default_charset')) : strlen($cookie);
+        $length = null === $cookie
+            ? 0
+            : ((ini_get('mbstring.func_overload') & 2)
+                ? mb_strlen($cookie, ini_get('default_charset'))
+                : strlen($cookie));
+
         if ($length >= 1048576) {
             return false;
         }
@@ -428,10 +397,10 @@ class CookieCore
             [
                 'expires' => $time,
                 'path' => $this->_path,
-                'domain' => $this->_domain,
+                'domain' => (string) $this->_domain,
                 'secure' => $this->_secure,
                 'httponly' => true,
-                'samesite' => $this->_sameSite,
+                'samesite' => in_array((string) $this->_sameSite, CookieOptions::SAMESITE_AVAILABLE_VALUES) ? (string) $this->_sameSite : CookieOptions::SAMESITE_NONE,
             ]
         );
     }
@@ -598,16 +567,21 @@ class CookieCore
      */
     public function getSession($sessionId)
     {
+        if ($this->session !== null) {
+            return $this->session;
+        }
+
         if (isset($this->id_employee)) {
-            $session = new EmployeeSession($sessionId);
+            $this->session = new EmployeeSession($sessionId);
         } elseif (isset($this->id_customer)) {
-            $session = new CustomerSession($sessionId);
+            $this->session = new CustomerSession($sessionId);
         }
 
-        if (isset($session) && Validate::isLoadedObject($session)) {
-            return $session;
+        if (isset($this->session) && Validate::isLoadedObject($this->session)) {
+            // Update session date_upd
+            $this->session->save();
         }
 
-        return null;
+        return $this->session;
     }
 }

@@ -98,7 +98,7 @@ class UpdateProductFeatureValuesFeatureContext extends AbstractProductFeatureCon
     private function storeCreatedFeatureValuesReferences(array $featureValueIds, array $featureValuesData): void
     {
         /** @var FeatureValueRepository $featureValueRepository */
-        $featureValueRepository = $this->getContainer()->get('prestashop.adapter.feature.repository.feature_value_repository');
+        $featureValueRepository = $this->getContainer()->get(FeatureValueRepository::class);
         foreach ($featureValueIds as $featureValueId) {
             $featureValue = $featureValueRepository->get($featureValueId);
             foreach ($featureValuesData as $featureValueDatum) {
@@ -141,6 +141,19 @@ class UpdateProductFeatureValuesFeatureContext extends AbstractProductFeatureCon
                 count($expectedFeatureValues),
                 count($productFeatureValues)
             ));
+        }
+
+        foreach ($expectedFeatureValues as $key => $expectedFeatureValue) {
+            // If new custom value is found set a new reference in storage, and set this new reference as the expected one for the second loop
+            if (!empty($expectedFeatureValue['new_feature_value']) && !empty($expectedFeatureValue['custom_values'])) {
+                $localizedValues = $this->localizeByCell($expectedFeatureValue['custom_values']);
+                foreach ($productFeatureValues as $productFeatureValue) {
+                    if ($localizedValues === $productFeatureValue->getLocalizedValues()) {
+                        $this->getSharedStorage()->set($expectedFeatureValue['new_feature_value'], $productFeatureValue->getFeatureValueId());
+                        $expectedFeatureValues[$key]['feature_value'] = $expectedFeatureValue['new_feature_value'];
+                    }
+                }
+            }
         }
 
         foreach ($expectedFeatureValues as $expectedFeatureValue) {

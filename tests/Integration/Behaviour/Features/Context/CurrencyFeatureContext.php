@@ -56,7 +56,7 @@ class CurrencyFeatureContext extends AbstractPrestaShopFeatureContext
      */
     public function storePreviousCurrencyId()
     {
-        $this->previousDefaultCurrencyId = Configuration::get('PS_CURRENCY_DEFAULT');
+        $this->previousDefaultCurrencyId = Currency::getDefaultCurrencyId();
         Cache::clean('Currency::*');
     }
 
@@ -128,7 +128,9 @@ class CurrencyFeatureContext extends AbstractPrestaShopFeatureContext
     public function setCurrentCurrency($currencyName)
     {
         $this->checkCurrencyWithNameExists($currencyName);
-        $this->getCurrentCart()->id_currency = $this->currencies[$currencyName]->id;
+        if ($this->getCurrentCart() !== null) {
+            $this->getCurrentCart()->id_currency = $this->currencies[$currencyName]->id;
+        }
         Context::getContext()->currency = $this->currencies[$currencyName];
     }
 

@@ -29,7 +29,13 @@ use PrestaShop\PrestaShop\Core\Product\Search\SortOrder;
 
 class BestSalesControllerCore extends ProductListingFrontController
 {
+    /** @var string */
     public $php_self = 'best-sales';
+
+    public function getCanonicalURL(): string
+    {
+        return $this->buildPaginatedUrl($this->context->link->getPageLink('best-sales'));
+    }
 
     /**
      * Initializes controller.
@@ -57,16 +63,22 @@ class BestSalesControllerCore extends ProductListingFrontController
         $this->doProductSearch('catalog/listing/best-sales', ['entity' => 'best-sales']);
     }
 
+    /**
+     * @return ProductSearchQuery
+     */
     protected function getProductSearchQuery()
     {
         $query = new ProductSearchQuery();
         $query
             ->setQueryType('best-sales')
-            ->setSortOrder(new SortOrder('product', 'name', 'asc'));
+            ->setSortOrder(new SortOrder('product', 'sales', 'desc'));
 
         return $query;
     }
 
+    /**
+     * @return BestSalesProductSearchProvider
+     */
     protected function getDefaultProductSearchProvider()
     {
         return new BestSalesProductSearchProvider(

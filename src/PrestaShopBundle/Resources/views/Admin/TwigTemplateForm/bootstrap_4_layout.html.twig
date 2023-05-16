@@ -187,7 +187,7 @@
         {% if multiple -%}
             <div class="checkbox">
                 <label>
-                    <input type="checkbox" name="{{ form.vars.full_name }}[tree][]" value="{{ child.id_category }}"{% if checked %} checked="checked"{% endif %}>
+                    <input type="checkbox" name="{{ form.vars.full_name }}[tree][]" value="{{ child.id_category }}"{% if checked %} checked="checked"{% endif %} class="category">
                     {% if child.active is defined and child.active == 0 %}
                         <i>{{ child.name }}</i>
                     {%- else -%}
@@ -240,6 +240,7 @@
                 <div data-locale="{{ translationsFields.vars.label }}" class="translationsFields-{{ translationsFields.vars.id }} tab-pane translation-field {% if hideTabs == false and form|length > 1 %}panel panel-default{% endif %} {% if defaultLocale.id_lang == translationsFields.vars.name %}show active{% endif %} {% if not form.vars.valid %}field-error{% endif %} translation-label-{{ translationsFields.vars.label }}">
                     {{ form_errors(translationsFields) }}
                     {{ form_widget(translationsFields) }}
+                    {{- block('form_help') -}}
                 </div>
             {% endfor %}
         </div>
@@ -281,7 +282,7 @@
                 {{ form.vars.default_locale.iso_code }}
             </button>
 
-            <div class="dropdown-menu locale-dropdown-menu" aria-labelledby="{{ form.vars.id }}">
+            <div class="dropdown-menu dropdown-menu-right locale-dropdown-menu" aria-labelledby="{{ form.vars.id }}">
                 {% for locale in locales %}
                     <span class="dropdown-item js-locale-item" data-locale="{{ locale.iso_code }}">{{ locale.name }}</span>
                 {% endfor %}
@@ -319,7 +320,7 @@
           {{ form.vars.default_locale.iso_code }}
         </button>
 
-        <div class="dropdown-menu locale-dropdown-menu" aria-labelledby="{{ form.vars.id }}">
+        <div class="dropdown-menu dropdown-menu-right locale-dropdown-menu" aria-labelledby="{{ form.vars.id }}">
           {% for locale in locales %}
             <span class="dropdown-item js-locale-item"
                   data-locale="{{ locale.iso_code }}"
@@ -351,7 +352,9 @@
 {% block date_range_widget %}
   {% apply spaceless %}
     {{ form_widget(form.from) }}
+    {{ form_errors(form.from) }}
     {{ form_widget(form.to) }}
+    {{ form_errors(form.to) }}
   {% endapply %}
 {% endblock date_range_widget %}
 
@@ -367,7 +370,7 @@
 {% block search_and_reset_widget %}
     {% apply spaceless %}
         <button type="submit"
-                class="btn btn-primary grid-search-button d-block float-right"
+                class="btn btn-primary grid-search-button d-block"
                 title="{{ 'Search'|trans({}, 'Admin.Actions') }}"
                 name="{{ full_name }}[search]"
         >
@@ -376,10 +379,9 @@
         </button>
       {% if show_reset_button %}
           <div class="js-grid-reset-button">
-          <div class="clearfix"></div>
             <button type="reset"
                     name="{{ full_name }}[reset]"
-                    class="btn btn-link js-reset-search btn d-block grid-reset-button float-right"
+                    class="btn btn-link js-reset-search btn d-block grid-reset-button"
                     data-url="{{ reset_url }}"
                     data-redirect="{{ redirect_url }}"
             >
@@ -690,11 +692,11 @@
                 {% endif %}
                 aria-haspopup="true"
                 aria-expanded="false"
-                id="{{ form.vars.id }}"
+                id="{{ form.vars.id }}_dropdown"
         >
           {{ form.vars.default_locale.iso_code }}
         </button>
-        <div class="dropdown-menu locale-dropdown-menu" aria-labelledby="{{ form.vars.id }}">
+        <div class="dropdown-menu dropdown-menu-right locale-dropdown-menu" aria-labelledby="{{ form.vars.id }}_dropdown">
           {% for locale in locales %}
             <span class="dropdown-item js-locale-item" data-locale="{{ locale.iso_code }}">{{ locale.name }}</span>
           {% endfor %}
@@ -859,19 +861,3 @@
     </datalist>
   {% endif %}
 {% endblock text_widget %}
-
-{% block submittable_input_widget %}
-  {%- set attr = attr|merge({'class': (attr.class|default('') ~ ' ps-submittable-input-wrapper')|trim}) -%}
-  <div {{ block('widget_attributes') }}>
-    {%- set typeAttr = form.vars.type_attr|merge({
-      'class': (form.vars.type_attr.class|default('') ~ ' submittable-input')|trim,
-      'data-initial-value': value,
-      'value': value,
-    }) -%}
-
-    {{ form_widget(form.value, {'attr': typeAttr}) }}
-    <button type="button" class="check-button d-none">
-      <i class="material-icons">check</i>
-    </button>
-  </div>
-{% endblock submittable_input_widget %}

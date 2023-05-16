@@ -28,18 +28,20 @@ declare(strict_types=1);
 
 namespace Tests\Integration\PrestaShopBundle\Controller;
 
-use Employee;
 use InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Client;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Form;
-use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Routing\RouterInterface;
 use Tests\Integration\PrestaShopBundle\Controller\FormFiller\FormFiller;
+use Tests\Integration\Utility\ContextMockerTrait;
+use Tests\Resources\DatabaseDump;
 
 abstract class GridControllerTestCase extends WebTestCase
 {
+    use ContextMockerTrait;
+
     /**
      * @var Client
      */
@@ -55,31 +57,24 @@ abstract class GridControllerTestCase extends WebTestCase
      */
     protected $formFiller;
 
-    public function setUp(): void
+    public static function setUpBeforeClass(): void
     {
-        $this->client = static::createClient();
-        $this->mockLegacyContextParts($this->client->getKernel());
-
-        $this->router = $this->client->getContainer()->get('router');
-        $this->formFiller = new FormFiller();
+        parent::setUpBeforeClass();
+        DatabaseDump::restoreTables(['admin_filter']);
     }
 
-    /**
-     * This is where you can mock part of the context if some are missing, by default only Employee is mocked
-     * but you improve this function or, more likely, extend it in your test class to add your required dependencies.
-     *
-     * @param KernelInterface $kernel
-     */
-    protected function mockLegacyContextParts(KernelInterface $kernel): void
+    public static function tearDownAfterClass(): void
     {
-        // Employee mock (so that profile and language is accessible)
-        $employeeMock = $this->getMockBuilder(Employee::class)->getMock();
-        $employeeMock->id_profile = 1;
-        $employeeMock->id_lang = 1;
+        parent::tearDownAfterClass();
+        DatabaseDump::restoreTables(['admin_filter']);
+    }
 
-        // Legacy context is updated with employee mock
-        $legacyContext = $kernel->getContainer()->get('prestashop.adapter.legacy.context');
-        $legacyContext->getContext()->employee = $employeeMock;
+    public function setUp(): void
+    {
+        self::mockContext();
+        $this->client = static::createClient();
+        $this->router = $this->client->getContainer()->get('router');
+        $this->formFiller = new FormFiller();
     }
 
     /**
@@ -100,8 +95,7 @@ abstract class GridControllerTestCase extends WebTestCase
     }
 
     /**
-     * Parses all the entities' data from the grid table, based on the parseEntityFromRow that each sub-class must
-     * implement.
+     * Parses all the entities' data from the grid table, based on the parseEntityFromRow that each subclass must implement.
      *
      * @param Crawler $crawler
      *
@@ -109,7 +103,6 @@ abstract class GridControllerTestCase extends WebTestCase
      */
     protected function parseEntitiesFromGridTable(Crawler $crawler): TestEntityDTOCollection
     {
-        $testEntityDTOCollection = new TestEntityDTOCollection();
         $grid = $crawler->filter($this->getGridSelector());
         if (empty($grid->count())) {
             throw new InvalidArgumentException(sprintf(
@@ -120,6 +113,25 @@ abstract class GridControllerTestCase extends WebTestCase
 
         // Get rows but filter the one that is used to indicate there is no result
         $entitiesRows = $grid->filter('tbody tr:not(.empty_row)');
+
+        $testEntityDTOCollection = $this->parseEntitiesFromRows($entitiesRows);
+
+        // Get total number
+        $testEntityDTOCollection->setTotalCount((int) $grid->first()->attr('data-total'));
+
+        return $testEntityDTOCollection;
+    }
+
+    /**
+     * Parses all the entities' data from the table rows, based on the parseEntityFromRow that each subclass must implement.
+     *
+     * @param Crawler $entitiesRows
+     *
+     * @return TestEntityDTOCollection
+     */
+    protected function parseEntitiesFromRows(Crawler $entitiesRows): TestEntityDTOCollection
+    {
+        $testEntityDTOCollection = new TestEntityDTOCollection();
 
         // If no rows are found the collection is empty
         if ($entitiesRows->count()) {
@@ -138,7 +150,7 @@ abstract class GridControllerTestCase extends WebTestCase
 
     /**
      * Calls the grid page with specific filters and return the parsed entities it contains, based on the
-     * parseEntityFromRow that each sub-class must implement.
+     * parseEntityFromRow that each subclass must implement.
      *
      * @param array $testFilters
      * @param array $routeParams
@@ -168,6 +180,12 @@ abstract class GridControllerTestCase extends WebTestCase
         $this->assertEquals($gridRoute, $redirectionRoute);
 
         return $this->parseEntitiesFromGridTable($crawler);
+    }
+
+    protected function resetGridFilters(): void
+    {
+        // grid filters reset button highly depends on javascript so there is no point trying to test it here
+        DatabaseDump::restoreTables(['admin_filter']);
     }
 
     /**
@@ -218,6 +236,38 @@ abstract class GridControllerTestCase extends WebTestCase
         }, iterator_to_array($entities));
 
         $this->assertContains($searchEntityId, $ids);
+    }
+
+    /**
+     * @param string $deleteRoute
+     * @param array $routeParams
+     */
+    protected function deleteEntityFromPage(string $deleteRoute, array $routeParams): void
+    {
+        // performs the deletion and then redirects to the list
+        $this->client->request('POST', $this->router->generate($deleteRoute, $routeParams));
+        $this->assertResponseRedirects();
+    }
+
+    /**
+     * @param string $route
+     * @param array<string, mixed> $routeParams
+     */
+    protected function toggleStatus(string $route, array $routeParams): void
+    {
+        $this->client->request('POST', $this->router->generate($route, $routeParams));
+        $this->assertResponseRedirects();
+    }
+
+    /**
+     * @param string $route
+     * @param array $requestParams
+     */
+    protected function bulkDeleteEntitiesFromPage(string $route, array $requestParams): void
+    {
+        // Delete url performs the deletion and then redirects to the list
+        $this->client->request('POST', $this->router->generate($route), $requestParams);
+        $this->assertResponseRedirects();
     }
 
     /**

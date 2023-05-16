@@ -30,8 +30,6 @@
   var $o;
 
   $.fn.mColorPicker = function(options) {
-    var inputs = $(this);
-
     $o = $.extend($.fn.mColorPicker.defaults, options);
 
     if ($o.swatches.length < 10) $o.swatches = $.fn.mColorPicker.defaults.swatches
@@ -47,7 +45,7 @@
       $.fn.mColorPicker.colorShow($(this).attr('id').replace('icp_', ''));
     });
 
-    inputs = $();
+    var inputs = [];
     this.each(function () {
       // collect the newly created inputs so that we can update their colors on document ready
       inputs.push($.fn.mColorPicker.drawPickerTriggers($(this)));
@@ -55,8 +53,8 @@
 
     // update the colors of the newly created inputs
     $(document).ready(function() {
-      $(inputs).each(function(){
-        $.fn.mColorPicker.setTextColor($(this));
+      inputs.forEach(function(input) {
+        $.fn.mColorPicker.setTextColor(input);
       });
     });
 
@@ -120,8 +118,7 @@
   };
 
   $.fn.mColorPicker.drawPickerTriggers = function ($t) {
-
-    if ($t[0].nodeName.toLowerCase() != 'input') return false;
+    if (!$t.is('input')) return false;
 
     var id = $t.attr('id') || 'color_' + $.fn.mColorPicker.init.index++,
         hidden = false;

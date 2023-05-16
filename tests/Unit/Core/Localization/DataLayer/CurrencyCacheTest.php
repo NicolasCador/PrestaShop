@@ -61,8 +61,6 @@ class CurrencyCacheTest extends TestCase
     public function testReadWrite()
     {
         $data = new CurrencyData();
-        /* @phpstan-ignore-next-line */
-        $data->foo = ['bar', 'baz'];
 
         /* @noinspection PhpUnhandledExceptionInspection */
         $this->layer->write(new LocalizedCurrencyId('foo', 'bar'), $data);
@@ -70,6 +68,7 @@ class CurrencyCacheTest extends TestCase
 
         // Get value back from cache
         /** @noinspection PhpUnhandledExceptionInspection */
+        /** @phpstan-ignore-next-line */
         $cachedData = $this->layer->read(new LocalizedCurrencyId('foo', 'bar'));
         /* @noinspection end */
 
@@ -78,13 +77,9 @@ class CurrencyCacheTest extends TestCase
             $cachedData
         );
 
-        $this->assertSame(
-            ['bar', 'baz'],
-            $cachedData->foo
-        );
-
         // Same test with unknown cache key
         /** @noinspection PhpUnhandledExceptionInspection */
+        /** @phpstan-ignore-next-line */
         $cachedData = $this->layer->read(new LocalizedCurrencyId('unknown', 'unknown'));
         /* @noinspection end */
 

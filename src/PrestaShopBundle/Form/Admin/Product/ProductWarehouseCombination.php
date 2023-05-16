@@ -32,25 +32,25 @@ use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major.
+ *
  * This form class is responsible to generate the basic product Warehouse combinations form.
  */
 class ProductWarehouseCombination extends CommonAbstractType
 {
     private $translator;
-    private $contextLegacy;
 
     /**
      * Constructor.
      *
-     * @param object $translator
-     * @param object $legacyContext
+     * @param TranslatorInterface $translator
      */
-    public function __construct($translator, $legacyContext)
+    public function __construct(TranslatorInterface $translator)
     {
         $this->translator = $translator;
-        $this->contextLegacy = $legacyContext->getContext();
     }
 
     /**

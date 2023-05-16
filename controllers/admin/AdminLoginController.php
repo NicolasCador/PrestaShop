@@ -24,6 +24,7 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 use PrestaShop\PrestaShop\Core\Util\InternationalizedDomainNameConverter;
+use PrestaShopBundle\Security\Admin\SessionRenewer;
 use Symfony\Component\HttpFoundation\IpUtils;
 
 class AdminLoginControllerCore extends AdminController
@@ -55,6 +56,9 @@ class AdminLoginControllerCore extends AdminController
         $this->addJs(_PS_JS_DIR_ . 'jquery/jquery-3.4.1.min.js');
         $this->addjqueryPlugin('validate');
         $this->addJS(_PS_JS_DIR_ . 'jquery/plugins/validate/localization/messages_' . $this->context->language->iso_code . '.js');
+        if ($this->context->language->is_rtl) {
+            $this->addCSS(__PS_BASE_URI__ . $this->admin_webpath . '/themes/' . $this->bo_theme . '/public/rtl.css', 'all', 0);
+        }
         $this->addCSS(__PS_BASE_URI__ . $this->admin_webpath . '/themes/' . $this->bo_theme . '/public/theme.css', 'all', 0);
         $this->addJS(_PS_JS_DIR_ . 'vendor/spin.js');
         $this->addJS(_PS_JS_DIR_ . 'vendor/ladda.js');
@@ -99,7 +103,12 @@ class AdminLoginControllerCore extends AdminController
             $this->context->smarty->assign('wrong_install_name', true);
         }
 
-        if (basename(_PS_ADMIN_DIR_) == 'admin' && file_exists(_PS_ADMIN_DIR_ . '/../admin/')) {
+        if (
+            // The install is well finished
+            !file_exists(_PS_ROOT_DIR_ . '/var/.install.prestashop')
+            && basename(_PS_ADMIN_DIR_) == 'admin'
+            && file_exists(_PS_ADMIN_DIR_ . '/../admin/')
+        ) {
             $rand = sprintf(
                 'admin%03d%s/',
                 mt_rand(0, 999),
@@ -258,6 +267,8 @@ class AdminLoginControllerCore extends AdminController
 
                 $cookie->write();
 
+                $this->get(SessionRenewer::class)->renew();
+
                 // If there is a valid controller name submitted, redirect to it
                 if (isset($_POST['redirect']) && Validate::isControllerName($_POST['redirect'])) {
                     $url = $this->context->link->getAdminLink($_POST['redirect']);
@@ -271,7 +282,7 @@ class AdminLoginControllerCore extends AdminController
                     [
                         'controller' => $this,
                         'employee' => $this->context->employee,
-                        'redirect' => $url,
+                        'redirect' => &$url,
                     ]
                 );
 
@@ -306,8 +317,17 @@ class AdminLoginControllerCore extends AdminController
             $this->errors[] = $this->trans('Invalid email address.', [], 'Admin.Notifications.Error');
         } else {
             $employee = new Employee();
-            if (!$employee->getByEmail($email) || !$employee) {
-                $this->errors[] = $this->trans('This account does not exist.', [], 'Admin.Login.Notification');
+            if (!$employee->getByEmail($email)) {
+                die(json_encode([
+                    'hasErrors' => false,
+                    'confirm' => $this->trans(
+                        'If this email address has been registered in our store, you will receive a link to reset your password at %email%.',
+                        [
+                            '%email%' => $email,
+                        ],
+                        'Admin.Login.Notification'
+                    ),
+                ]));
             } elseif ((strtotime($employee->last_passwd_gen . '+' . Configuration::get('PS_PASSWD_TIME_BACK') . ' minutes') - time()) > 0) {
                 $this->errors[] = $this->trans('You can reset your password every %interval% minute(s) only. Please try again later.', ['%interval%' => Configuration::get('PS_PASSWD_TIME_BACK')], 'Admin.Login.Notification');
             }
@@ -406,10 +426,10 @@ class AdminLoginControllerCore extends AdminController
         } elseif (!$reset_confirm) {
             $this->errors[] = $this->trans('The confirmation is empty: please fill in the password confirmation as well.', [], 'Admin.Login.Notification');
         } elseif ($reset_password !== $reset_confirm) {
-            $this->errors[] = $this->trans('The password and its confirmation do not match. Please double check both passwords.', [], 'Admin.Login.Notification');
+            $this->errors[] = $this->trans("The confirmation password doesn't match. Please double-check both passwords.", [], 'Admin.Login.Notification');
         } else {
             $employee = new Employee();
-            if (!$employee->getByEmail($reset_email) || !$employee || $employee->id != $id_employee) { // check matching employee id with its email
+            if (!$employee->getByEmail($reset_email) || $employee->id != $id_employee) { // check matching employee id with its email
                 $this->errors[] = $this->trans('This account does not exist.', [], 'Admin.Login.Notification');
             } elseif ((strtotime($employee->last_passwd_gen . '+' . Configuration::get('PS_PASSWD_TIME_BACK') . ' minutes') - time()) > 0) {
                 $this->errors[] = $this->trans('You can reset your password every %interval% minute(s) only. Please try again later.', ['%interval%' => Configuration::get('PS_PASSWD_TIME_BACK')], 'Admin.Login.Notification');

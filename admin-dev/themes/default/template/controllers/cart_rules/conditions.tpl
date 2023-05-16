@@ -96,14 +96,14 @@
 			</div>
 			<div class="col-lg-3">
 				<select name="minimum_amount_tax">
-					<option value="0" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') == 0}selected="selected"{/if}>{l s='Tax excluded' d='Admin.Global'}</option>
-					<option value="1" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') == 1}selected="selected"{/if}>{l s='Tax included' d='Admin.Global'}</option>
+					<option value="0" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') === '0'}selected="selected"{/if}>{l s='Tax excluded' d='Admin.Global'}</option>
+					<option value="1" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') === '1' || $currentTab->getFieldValue($currentObject, 'minimum_amount_tax') === false}selected="selected"{/if}>{l s='Tax included' d='Admin.Global'}</option>
 				</select>
 			</div>
 			<div class="col-lg-4">
 				<select name="minimum_amount_shipping">
-					<option value="0" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_shipping') == 0}selected="selected"{/if}>{l s='Shipping excluded' d='Admin.Catalog.Feature'}</option>
-					<option value="1" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_shipping') == 1}selected="selected"{/if}>{l s='Shipping included' d='Admin.Catalog.Feature'}</option>
+					<option value="0" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_shipping') === '0'}selected="selected"{/if}>{l s='Shipping excluded' d='Admin.Catalog.Feature'}</option>
+					<option value="1" {if $currentTab->getFieldValue($currentObject, 'minimum_amount_shipping') === '1'}selected="selected"{/if}>{l s='Shipping included' d='Admin.Catalog.Feature'}</option>
 				</select>
 			</div>
 		</div>
@@ -294,11 +294,11 @@
 				</a>
 			</div>
 
-		{if ($shops.unselected|@count) + ($shops.selected|@count) > 1}
+		{if ($all_shops|@count) > 1}
 			<p class="checkbox">
 				<label>
-					<input type="checkbox" id="shop_restriction" name="shop_restriction" value="1" {if $shops.unselected|@count}checked="checked"{/if} />
-					{l s='Shop selection' d='Admin.Catalog.Feature'}
+					<input type="checkbox" id="shop_restriction" name="shop_restriction" value="1" {if $shops.selected|@count || ($shops.selected|@count + $shops.unselected|@count < $all_shops|@count)}checked="checked"{/if} />
+					{l s='Store selection' d='Admin.Catalog.Feature'}
 				</label>
 			</p>
 			<div id="shop_restriction_div">

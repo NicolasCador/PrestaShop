@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -24,6 +23,7 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
+
 declare(strict_types=1);
 
 namespace PrestaShop\PrestaShop\Adapter\EntityTranslation;
@@ -119,7 +119,7 @@ class DataLangFactory
     {
         $length = strlen($this->dbPrefix);
         if (substr($tableName, 0, $length) === $this->dbPrefix) {
-            $tableName = substr($tableName, $length - 1) ?? '';
+            $tableName = substr($tableName, $length) ?: '';
         }
 
         return $tableName;

@@ -29,7 +29,7 @@
  */
 class ProfileCore extends ObjectModel
 {
-    const ALLOWED_PROFILE_TYPE_CHECK = [
+    public const ALLOWED_PROFILE_TYPE_CHECK = [
         'id_tab',
         'class_name',
     ];
@@ -203,6 +203,12 @@ class ProfileCore extends ObjectModel
         }
 
         return self::$_cache_accesses[$idProfile][$type];
+    }
+
+    public static function resetStaticCache()
+    {
+        parent::resetStaticCache();
+        self::resetCacheAccesses();
     }
 
     public static function resetCacheAccesses()

@@ -40,6 +40,7 @@ use PrestaShop\PrestaShop\Core\Domain\Cart\Query\GetCartForViewing;
 use PrestaShop\PrestaShop\Core\Domain\Cart\QueryHandler\GetCartForViewingHandlerInterface;
 use PrestaShop\PrestaShop\Core\Domain\Cart\QueryResult\CartView;
 use PrestaShop\PrestaShop\Core\Localization\Locale;
+use PrestaShop\PrestaShop\Core\Util\Sorter;
 use Product;
 use StockAvailable;
 use Validate;
@@ -116,6 +117,10 @@ final class GetCartForViewingHandler implements GetCartForViewingHandlerInterfac
             $total_price = $summary['total_price'];
             $total_shipping = $summary['total_shipping'];
         }
+
+        // Sort products by Reference ID (and if equals (like combination) by Supplier Reference)
+        $sorter = new Sorter();
+        $products = $sorter->natural($products, Sorter::ORDER_DESC, 'reference', 'supplier_reference');
 
         foreach ($products as &$product) {
             if ($tax_calculation_method == PS_TAX_EXC) {
@@ -215,32 +220,18 @@ final class GetCartForViewingHandler implements GetCartForViewingHandlerInterfac
                 'reference' => $product['reference'],
                 'supplier_reference' => $product['supplier_reference'],
                 'stock_quantity' => $product['qty_in_stock'],
-                'customization_quantity' => $product['customizationQuantityTotal'],
                 'cart_quantity' => $product['cart_quantity'],
                 'total_price' => $product['product_total'],
                 'unit_price' => $product['product_price'],
                 'total_price_formatted' => $this->locale->formatPrice($product['product_total'], $currency->iso_code),
                 'unit_price_formatted' => $this->locale->formatPrice($product['product_price'], $currency->iso_code),
-                'image' => $this->imageManager->getThumbnailForListing($image['id_image']),
+                // it is possible that there is no image for product, so we don't show anything, but at least avoid breaking whole page
+                'image' => isset($image['id_image']) ? $this->imageManager->getThumbnailForListing($image['id_image']) : '',
             ];
-
-            if (isset($product['customizationQuantityTotal'])) {
-                $formattedProduct['cart_quantity'] =
-                    $product['cart_quantity'] - $product['customizationQuantityTotal'];
-            }
 
             $productCustomization = [];
 
             if ($product['customizedDatas']) {
-                $formattedProduct['unit_price'] = $product['price_wt'];
-                $formattedProduct['unit_price_formatted'] = $this->locale->formatPrice($product['price_wt'], $currency->iso_code);
-                $formattedProduct['total_price'] = $product['total_customization_wt'];
-                $formattedProduct['total_price_formatted'] = $this->locale->formatPrice(
-                    $product['total_customization_wt'],
-                    $currency->iso_code
-                );
-                $formattedProduct['quantity'] = $product['customizationQuantityTotal'];
-
                 foreach ($product['customizedDatas'] as $customizationPerAddress) {
                     foreach ($customizationPerAddress as $customization) {
                         if (((int) $customization['id_customization'] !== (int) $product['id_customization']) &&

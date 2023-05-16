@@ -26,8 +26,10 @@
 
 namespace PrestaShopBundle\Form\Admin\Product;
 
+use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\Isbn;
 use PrestaShopBundle\Form\Admin\Type\CommonAbstractType;
 use PrestaShopBundle\Form\Admin\Type\TranslateType;
+use PrestaShopBundle\Form\FormHelper;
 use Symfony\Component\Form\Extension\Core\Type as FormType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
@@ -35,6 +37,8 @@ use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major.
+ *
  * This form class is responsible to generate the product options form.
  */
 class ProductOptions extends CommonAbstractType
@@ -42,10 +46,8 @@ class ProductOptions extends CommonAbstractType
     private $translator;
     private $suppliers;
     private $context;
-    private $productAdapter;
     private $router;
     private $locales;
-    private $currencyDataprovider;
     private $fullAttachmentList;
     private $attachmentList;
 
@@ -54,29 +56,23 @@ class ProductOptions extends CommonAbstractType
      *
      * @param object $translator
      * @param object $legacyContext
-     * @param object $productDataProvider
      * @param object $supplierDataProvider
-     * @param object $currencyDataprovider
      * @param object $attachmentDataprovider
      * @param object $router
      */
     public function __construct(
         $translator,
         $legacyContext,
-        $productDataProvider,
         $supplierDataProvider,
-        $currencyDataprovider,
         $attachmentDataprovider,
         $router
     ) {
         $this->context = $legacyContext;
         $this->translator = $translator;
-        $this->productAdapter = $productDataProvider;
-        $this->currencyDataprovider = $currencyDataprovider;
         $this->locales = $legacyContext->getLanguages();
         $this->router = $router;
 
-        $this->suppliers = $this->formatDataChoicesList(
+        $this->suppliers = FormHelper::formatDataChoicesList(
             $supplierDataProvider->getSuppliers(),
             'id_supplier'
         );
@@ -84,7 +80,7 @@ class ProductOptions extends CommonAbstractType
         $this->fullAttachmentList = $attachmentDataprovider->getAllAttachments(
             $this->context->getLanguages()[0]['id_lang']
         );
-        $this->attachmentList = $this->formatDataChoicesList(
+        $this->attachmentList = FormHelper::formatDataChoicesList(
             $this->fullAttachmentList,
             'id_attachment',
             'file'
@@ -189,7 +185,7 @@ class ProductOptions extends CommonAbstractType
                 'required' => false,
                 'label' => $this->translator->trans('ISBN', [], 'Admin.Catalog.Feature'),
                 'constraints' => [
-                    new Assert\Regex('/^[0-9-]{0,32}$/'),
+                    new Assert\Regex(Isbn::VALID_PATTERN),
                 ],
                 'empty_data' => '',
             ])
@@ -204,7 +200,7 @@ class ProductOptions extends CommonAbstractType
             ])
             ->add('condition', FormType\ChoiceType::class, [
                 'choices' => [
-                    $this->translator->trans('New', [], 'Shop.Theme.Catalog') => 'new',
+                    $this->translator->trans('New', [], 'Admin.Global') => 'new',
                     $this->translator->trans('Used', [], 'Shop.Theme.Catalog') => 'used',
                     $this->translator->trans('Refurbished', [], 'Shop.Theme.Catalog') => 'refurbished',
                 ],
@@ -243,6 +239,7 @@ class ProductOptions extends CommonAbstractType
                     'entry_type' => ProductSupplierCombination::class,
                     'entry_options' => [
                         'id_supplier' => $id,
+                        'id_currency' => $this->context->getContext()->currency->id,
                     ],
                     'prototype' => true,
                     'allow_add' => true,

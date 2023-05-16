@@ -38,7 +38,9 @@
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
+  import ComponentsMap from '@components/components-map';
+  import {defineComponent} from 'vue';
+  import translate from '@app/pages/stock/mixins/translate';
   import Breadcrumb from './breadcrumb.vue';
   import Tabs from './tabs.vue';
 
@@ -50,15 +52,24 @@
       .find('.toolbar-icons');
   }
 
-  export default Vue.extend({
+  function getNotificationsElements() {
+    return $(`${ComponentsMap.ajaxConfirmation}, #${ComponentsMap.contextualNotification.messageBoxId}`);
+  }
+
+  export default defineComponent({
     components: {
       Breadcrumb,
       Tabs,
     },
+    mixins: [translate],
     mounted() {
+      const $vueElement = $(this.$el);
       // move the toolbar buttons to this header
       const toolbarButtons = getOldHeaderToolbarButtons();
-      toolbarButtons.insertAfter($(this.$el).find('.title-row > .title'));
+      toolbarButtons.insertAfter($vueElement.find('.title-row > .title'));
+
+      const notifications = getNotificationsElements();
+      notifications.insertAfter($vueElement);
 
       // signal header change (so size can be updated)
       const event = $.Event('vueHeaderMounted', {

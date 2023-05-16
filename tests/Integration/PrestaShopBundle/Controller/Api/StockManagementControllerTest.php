@@ -28,8 +28,10 @@ declare(strict_types=1);
 
 namespace Tests\Integration\PrestaShopBundle\Controller\Api;
 
+use Cache;
 use Doctrine\DBAL\Connection;
 use PrestaShopBundle\Api\QueryStockParamsCollection;
+use Tests\Resources\DatabaseDump;
 
 class StockManagementControllerTest extends ApiTestCase
 {
@@ -37,6 +39,28 @@ class StockManagementControllerTest extends ApiTestCase
      * @var Connection
      */
     private $connection;
+
+    public static function setUpBeforeClass(): void
+    {
+        parent::setUpBeforeClass();
+        static::restoreDatabase();
+    }
+
+    public static function tearDownAfterClass(): void
+    {
+        parent::tearDownAfterClass();
+        static::restoreDatabase();
+    }
+
+    protected static function restoreDatabase(): void
+    {
+        DatabaseDump::restoreTables([
+            'product',
+            'product_attribute',
+            'stock_available',
+            'stock_mvt',
+        ]);
+    }
 
     protected function setUp(): void
     {
@@ -52,23 +76,6 @@ class StockManagementControllerTest extends ApiTestCase
         self::$container->set('prestashop.core.api.stock_movement.repository', $stockMovementRepository);
 
         $this->restoreQuantityEditionFixtures();
-    }
-
-    private function restoreMovements(): void
-    {
-        $deleteMovements = sprintf('DELETE FROM %sstock_mvt', _DB_PREFIX_);
-        $statement = $this->connection->prepare($deleteMovements);
-        $statement->executeStatement();
-    }
-
-    private function restoreQuantityEditionFixtures(): void
-    {
-        $updateProductQuantity = sprintf(
-            'UPDATE %sstock_available SET quantity = 8, physical_quantity = 10, reserved_quantity = 2 WHERE id_product = 1 AND id_product_attribute = 1',
-            _DB_PREFIX_
-        );
-        $statement = $this->connection->prepare($updateProductQuantity);
-        $statement->executeStatement();
     }
 
     public function testItShouldReturnBadRequestResponseOnInvalidPaginationParams(): void
@@ -188,10 +195,6 @@ class StockManagementControllerTest extends ApiTestCase
      */
     private function assertResponseHasTotalPages(array $parameters, int $expectedTotalPages): void
     {
-        if (null === $expectedTotalPages) {
-            return;
-        }
-
         $QueryStockParamsCollection = new QueryStockParamsCollection();
         $pageSize = $QueryStockParamsCollection->getDefaultPageSize();
         if (array_key_exists('page_size', $parameters)) {
@@ -358,16 +361,28 @@ class StockManagementControllerTest extends ApiTestCase
         $bulkEditProductsRoute = $this->router->generate('api_stock_bulk_edit_products');
 
         self::$client->request('POST', $bulkEditProductsRoute);
-        $this->assertResponseBodyValidJson(400);
+        $content = $this->assertResponseBodyValidJson(400);
+        $this->assertEquals([
+            'error' => 'Invalid JSON content (The request body should contain a JSON-encoded array of product identifiers and deltas)',
+        ], $content);
 
         self::$client->request('POST', $bulkEditProductsRoute, [], [], [], '[{"combination_id": 0}]');
-        $this->assertResponseBodyValidJson(400);
+        $content = $this->assertResponseBodyValidJson(400);
+        $this->assertEquals([
+            'error' => 'Each item of JSON-encoded array in the request body should contain a product id ("product_id"), a quantity delta ("delta"). The item of index #0 is invalid.',
+        ], $content);
 
         self::$client->request('POST', $bulkEditProductsRoute, [], [], [], '[{"product_id": 1}]');
-        $this->assertResponseBodyValidJson(400);
+        $content = $this->assertResponseBodyValidJson(400);
+        $this->assertEquals([
+            'error' => 'Each item of JSON-encoded array in the request body should contain a product id ("product_id"), a quantity delta ("delta"). The item of index #0 is invalid.',
+        ], $content);
 
         self::$client->request('POST', $bulkEditProductsRoute, [], [], [], '[{"delta": 0}]');
-        $this->assertResponseBodyValidJson(400);
+        $content = $this->assertResponseBodyValidJson(400);
+        $this->assertEquals([
+            'error' => 'Each item of JSON-encoded array in the request body should contain a product id ("product_id"), a quantity delta ("delta"). The item of index #0 is invalid.',
+        ], $content);
 
         self::$client->request(
             'POST',
@@ -377,7 +392,10 @@ class StockManagementControllerTest extends ApiTestCase
             [],
             '[{"product_id": 1, "delta": 0}]'
         );
-        $this->assertResponseBodyValidJson(400);
+        $content = $this->assertResponseBodyValidJson(400);
+        $this->assertEquals([
+            'error' => 'Value cannot be 0.',
+        ], $content);
     }
 
     private function assertOkResponseOnBulkEditProducts(): void
@@ -506,5 +524,24 @@ class StockManagementControllerTest extends ApiTestCase
     public function testItShouldReturnOkResponseWhenRequestingMovementsEmployees(): void
     {
         $this->assertOkResponseOnList('api_stock_list_movements_employees');
+    }
+
+    private function restoreMovements(): void
+    {
+        $deleteMovements = sprintf('DELETE FROM %sstock_mvt', _DB_PREFIX_);
+        $statement = $this->connection->prepare($deleteMovements);
+        $statement->executeStatement();
+    }
+
+    private function restoreQuantityEditionFixtures(): void
+    {
+        $updateProductQuantity = sprintf(
+            'UPDATE %sstock_available SET quantity = 8, physical_quantity = 10, reserved_quantity = 2 WHERE id_product = 1 AND id_product_attribute = 1',
+            _DB_PREFIX_
+        );
+        $statement = $this->connection->prepare($updateProductQuantity);
+        $statement->executeStatement();
+        // Clear cache for entity manager to fetch the new updated values
+        Cache::clean('objectmodel_StockAvailable_*');
     }
 }

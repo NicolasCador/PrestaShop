@@ -25,9 +25,10 @@
  */
 class WebserviceRequestCore
 {
-    const HTTP_GET = 1;
-    const HTTP_POST = 2;
-    const HTTP_PUT = 4;
+    public const HTTP_GET = 1;
+    public const HTTP_POST = 2;
+    public const HTTP_PUT = 4;
+    public const HTTP_PATCH = 8;
 
     protected $_available_languages = null;
     /**
@@ -63,7 +64,7 @@ class WebserviceRequestCore
      *
      * @var string
      */
-    protected $_docUrl = 'https://devdocs.prestashop.com/8/webservice';
+    protected $_docUrl = 'https://devdocs.prestashop-project.org/8/webservice';
 
     /**
      * Set if the authentication key was checked.
@@ -195,7 +196,7 @@ class WebserviceRequestCore
     /**
      * The object to build the output.
      *
-     * @var WebserviceOutputBuilder
+     * @var WebserviceOutputBuilder|null
      */
     protected $objOutput;
 
@@ -317,7 +318,7 @@ class WebserviceRequestCore
             'product_features' => ['description' => 'The product features', 'class' => 'Feature'],
             'product_feature_values' => ['description' => 'The product feature values', 'class' => 'FeatureValue'],
             'product_options' => ['description' => 'The product options', 'class' => 'AttributeGroup'],
-            'product_option_values' => ['description' => 'The product options value', 'class' => 'Attribute'],
+            'product_option_values' => ['description' => 'The product options value', 'class' => 'ProductAttribute'],
             'products' => ['description' => 'The products', 'class' => 'Product'],
             'states' => ['description' => 'The available states of countries', 'class' => 'State'],
             'stores' => ['description' => 'The stores', 'class' => 'Store'],
@@ -327,22 +328,22 @@ class WebserviceRequestCore
             'weight_ranges' => ['description' => 'Weight ranges', 'class' => 'RangeWeight'],
             'zones' => ['description' => 'The Countries zones', 'class' => 'Zone'],
             'employees' => ['description' => 'The Employees', 'class' => 'Employee'],
-            'search' => ['description' => 'Search', 'specific_management' => true, 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
+            'search' => ['description' => 'Search', 'specific_management' => true, 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
             'content_management_system' => ['description' => 'Content management system', 'class' => 'CMS'],
             'shops' => ['description' => 'Shops from multi-shop feature', 'class' => 'Shop'],
             'shop_groups' => ['description' => 'Shop groups from multi-shop feature', 'class' => 'ShopGroup'],
             'taxes' => ['description' => 'The tax rate', 'class' => 'Tax'],
-            'stock_movements' => ['description' => 'Stock movements', 'class' => 'StockMvtWS', 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
+            'stock_movements' => ['description' => 'Stock movements', 'class' => 'StockMvtWS', 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
             'stock_movement_reasons' => ['description' => 'Stock movement reason', 'class' => 'StockMvtReason'],
             'warehouses' => ['description' => 'Warehouses', 'class' => 'Warehouse', 'forbidden_method' => ['DELETE']],
-            'stocks' => ['description' => 'Stocks', 'class' => 'Stock', 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
+            'stocks' => ['description' => 'Stocks', 'class' => 'Stock', 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
             'stock_availables' => ['description' => 'Available quantities', 'class' => 'StockAvailable', 'forbidden_method' => ['POST', 'DELETE']],
-            'warehouse_product_locations' => ['description' => 'Location of products in warehouses', 'class' => 'WarehouseProductLocation', 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
-            'supply_orders' => ['description' => 'Supply Orders', 'class' => 'SupplyOrder', 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
-            'supply_order_details' => ['description' => 'Supply Order Details', 'class' => 'SupplyOrderDetail', 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
-            'supply_order_states' => ['description' => 'Supply Order Statuses', 'class' => 'SupplyOrderState', 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
-            'supply_order_histories' => ['description' => 'Supply Order Histories', 'class' => 'SupplyOrderHistory', 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
-            'supply_order_receipt_histories' => ['description' => 'Supply Order Receipt Histories', 'class' => 'SupplyOrderReceiptHistory', 'forbidden_method' => ['PUT', 'POST', 'DELETE']],
+            'warehouse_product_locations' => ['description' => 'Location of products in warehouses', 'class' => 'WarehouseProductLocation', 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
+            'supply_orders' => ['description' => 'Supply Orders', 'class' => 'SupplyOrder', 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
+            'supply_order_details' => ['description' => 'Supply Order Details', 'class' => 'SupplyOrderDetail', 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
+            'supply_order_states' => ['description' => 'Supply Order Statuses', 'class' => 'SupplyOrderState', 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
+            'supply_order_histories' => ['description' => 'Supply Order Histories', 'class' => 'SupplyOrderHistory', 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
+            'supply_order_receipt_histories' => ['description' => 'Supply Order Receipt Histories', 'class' => 'SupplyOrderReceiptHistory', 'forbidden_method' => ['PUT', 'POST', 'PATCH', 'DELETE']],
             'product_suppliers' => ['description' => 'Product Suppliers', 'class' => 'ProductSupplier'],
             'tax_rules' => ['description' => 'Tax rules entity', 'class' => 'TaxRule'],
             'tax_rule_groups' => ['description' => 'Tax rule groups', 'class' => 'TaxRulesGroup'],
@@ -408,17 +409,17 @@ class WebserviceRequestCore
             $id_shop = (int) Context::getContext()->shop->id;
             $id_country = (int) (isset($value['country']) ? $value['country'] : (Configuration::get('PS_COUNTRY_DEFAULT')));
             $id_state = (int) (isset($value['state']) ? $value['state'] : 0);
-            $id_currency = (int) (isset($value['currency']) ? $value['currency'] : Configuration::get('PS_CURRENCY_DEFAULT'));
+            $id_currency = (int) (isset($value['currency']) ? $value['currency'] : Currency::getDefaultCurrencyId());
             $id_group = (int) (isset($value['group']) ? $value['group'] : (int) Configuration::get('PS_CUSTOMER_GROUP'));
             $quantity = (int) (isset($value['quantity']) ? $value['quantity'] : 1);
-            $use_tax = (int) (isset($value['use_tax']) ? $value['use_tax'] : Configuration::get('PS_TAX'));
+            $use_tax = (bool) (isset($value['use_tax']) ? $value['use_tax'] : Configuration::get('PS_TAX'));
             $decimals = (int) (isset($value['decimals']) ? $value['decimals'] : Configuration::get('PS_PRICE_ROUND_MODE'));
             $id_product_attribute = (int) (isset($value['product_attribute']) ? $value['product_attribute'] : null);
-            $only_reduc = (int) (isset($value['only_reduction']) ? $value['only_reduction'] : false);
-            $use_reduc = (int) (isset($value['use_reduction']) ? $value['use_reduction'] : true);
-            $use_ecotax = (int) (isset($value['use_ecotax']) ? $value['use_ecotax'] : Configuration::get('PS_USE_ECOTAX'));
+            $only_reduc = (bool) (isset($value['only_reduction']) ? $value['only_reduction'] : false);
+            $use_reduc = (bool) (isset($value['use_reduction']) ? $value['use_reduction'] : true);
+            $use_ecotax = (bool) (isset($value['use_ecotax']) ? $value['use_ecotax'] : Configuration::get('PS_USE_ECOTAX'));
             $specific_price_output = null;
-            $id_county = (int) (isset($value['county']) ? $value['county'] : 0);
+            $id_county = (string) (isset($value['county']) ? $value['county'] : 0);
             $return_value = Product::priceCalculation(
                 $id_shop,
                 $value['object_id'],
@@ -435,7 +436,7 @@ class WebserviceRequestCore
                 $use_reduc,
                 $use_ecotax,
                 $specific_price_output,
-                null
+                false
             );
             $arr_return[$name] = ['sqlId' => strtolower($name), 'value' => sprintf('%f', $return_value)];
         }
@@ -586,6 +587,12 @@ class WebserviceRequestCore
                             }
 
                             break;
+                        case 'PATCH':
+                            if ($this->executeEntityPatch()) {
+                                $success = true;
+                            }
+
+                            break;
                         case 'DELETE':
                             $this->executeEntityDelete();
 
@@ -603,8 +610,10 @@ class WebserviceRequestCore
                         $this->setError(501, sprintf('The specific management class is not implemented for the "%s" entity.', $this->urlSegment[0]), 124);
                     } else {
                         $this->setObjectSpecificManagement(new $specificObjectName());
-                        $this->objectSpecificManagement->setObjectOutput($this->objOutput)
-                            ->setWsObject($this);
+                        $this->objectSpecificManagement->setObjectOutput($this->objOutput);
+                        if ($this instanceof WebserviceRequest) {
+                            $this->objectSpecificManagement->setWsObject($this);
+                        }
 
                         try {
                             $this->objectSpecificManagement->manage();
@@ -657,7 +666,7 @@ class WebserviceRequestCore
      *
      * @param int $num
      * @param string $label
-     * @param array $value
+     * @param string $value
      * @param array $available_values
      * @param int $code
      */
@@ -951,7 +960,7 @@ class WebserviceRequestCore
      */
     protected function checkHTTPMethod()
     {
-        if (!in_array($this->method, ['GET', 'POST', 'PUT', 'DELETE', 'HEAD'])) {
+        if (!in_array($this->method, ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'HEAD'])) {
             $this->setError(405, 'Method ' . $this->method . ' is not valid', 23);
         } elseif (isset($this->urlSegment[0], $this->resourceList[$this->urlSegment[0]]['forbidden_method']) && in_array($this->method, $this->resourceList[$this->urlSegment[0]]['forbidden_method'])) {
             $this->setError(405, 'Method ' . $this->method . ' is not allowed for the resource ' . $this->urlSegment[0], 101);
@@ -1119,9 +1128,8 @@ class WebserviceRequestCore
         $i18n_available_filters = [];
         foreach ($this->resourceConfiguration['fields'] as $fieldName => $field) {
             if ((!isset($this->resourceConfiguration['hidden_fields']) ||
-                (isset($this->resourceConfiguration['hidden_fields']) && !in_array($fieldName, $this->resourceConfiguration['hidden_fields'])))) {
-                if ((!isset($field['i18n']) ||
-                (isset($field['i18n']) && !$field['i18n']))) {
+                (!in_array($fieldName, $this->resourceConfiguration['hidden_fields'])))) {
+                if ((!isset($field['i18n']) || (isset($field['i18n']) && !$field['i18n']))) {
                     $available_filters[] = $fieldName;
                 } else {
                     $i18n_available_filters[] = $fieldName;
@@ -1130,7 +1138,7 @@ class WebserviceRequestCore
         }
 
         // Date feature : date=1
-        if (!empty($this->urlFragments['date']) && $this->urlFragments['date']) {
+        if (!empty($this->urlFragments['date'])) {
             if (!in_array('date_add', $available_filters)) {
                 $available_filters[] = 'date_add';
             }
@@ -1446,6 +1454,16 @@ class WebserviceRequestCore
     }
 
     /**
+     * Execute PATCH method on a PrestaShop entity.
+     *
+     * @return bool
+     */
+    public function executeEntityPatch(): bool
+    {
+        return $this->saveEntityFromXml(200);
+    }
+
+    /**
      * Execute DELETE method on a PrestaShop entity.
      *
      * @return void
@@ -1537,7 +1555,7 @@ class WebserviceRequestCore
                 $ids[] = (int) $entity->id;
             }
         }
-        if ($this->method == 'PUT') {
+        if ($this->method == 'PUT' || $this->method == 'PATCH') {
             $ids2 = array_unique($ids);
             if (count($ids2) != count($ids)) {
                 $this->setError(400, 'id is duplicate in request', 89);
@@ -1563,7 +1581,7 @@ class WebserviceRequestCore
             /* @var ObjectModel $object */
             if ($this->method == 'POST') {
                 $object = new $this->resourceConfiguration['retrieveData']['className']();
-            } elseif ($this->method == 'PUT') {
+            } elseif ($this->method == 'PUT' || $this->method == 'PATCH') {
                 $object = new $this->resourceConfiguration['retrieveData']['className']((int) $attributes->id);
                 if (!$object->id) {
                     $this->setError(404, 'Invalid ID', 92);
@@ -1581,8 +1599,11 @@ class WebserviceRequestCore
             $i18n = false;
             // attributes
             foreach ($this->resourceConfiguration['fields'] as $fieldName => $fieldProperties) {
+                // only process fields actually in the input XML
+                if ($this->method == 'PATCH' && !isset($attributes->$fieldName)) {
+                    continue;
+                }
                 $sqlId = $fieldProperties['sqlId'];
-
                 if ($fieldName == 'id') {
                     $sqlId = $fieldName;
                 }
@@ -1784,11 +1805,12 @@ class WebserviceRequestCore
     {
         $return = [];
 
-        // write headers
-        $this->objOutput->setHeaderParams('Access-Time', time())
+        // Write headers
+        $this->objOutput
+            ->setHeaderParams('Access-Time', (string) time())
             ->setHeaderParams('X-Powered-By', 'PrestaShop Webservice')
-            ->setHeaderParams('PSWS-Version', _PS_VERSION_)
-            ->setHeaderParams('Execution-Time', round(microtime(true) - $this->_startTime, 3));
+            ->setHeaderParams('Execution-Time', (string) round(microtime(true) - $this->_startTime, 3))
+        ;
 
         $return['type'] = strtolower($this->outputFormat);
 
@@ -1830,7 +1852,7 @@ class WebserviceRequestCore
                         $type_of_view = WebserviceOutputBuilder::VIEW_LIST;
                     }
 
-                    if (in_array($this->method, ['PUT', 'POST'])) {
+                    if (in_array($this->method, ['PUT', 'POST', 'PATCH'])) {
                         $type_of_view = WebserviceOutputBuilder::VIEW_DETAILS;
                         $this->fieldsToDisplay = 'full';
                     }
@@ -1851,14 +1873,13 @@ class WebserviceRequestCore
         // if the output is not enable, delete the content
         // the type content too
         if (!$this->_outputEnabled) {
-            if (isset($return['type'])) {
-                unset($return['type']);
-            }
+            unset($return['type']);
             if (isset($return['content'])) {
                 unset($return['content']);
             }
         } elseif (isset($return['content'])) {
-            $this->objOutput->setHeaderParams('Content-Sha1', sha1($return['content']));
+            $return['content_sha1'] = sha1($return['content']);
+            $this->objOutput->setHeaderParams('Content-Sha1', $return['content_sha1']);
         }
 
         // if errors happens when creating returned xml,

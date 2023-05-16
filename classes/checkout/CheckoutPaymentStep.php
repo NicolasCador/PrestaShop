@@ -23,7 +23,7 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CheckoutPaymentStepCore extends AbstractCheckoutStep
 {
@@ -40,6 +40,12 @@ class CheckoutPaymentStepCore extends AbstractCheckoutStep
      */
     public $paymentOptionsFinder;
 
+    /**
+     * @param Context $context
+     * @param TranslatorInterface $translator
+     * @param PaymentOptionsFinder $paymentOptionsFinder
+     * @param ConditionsToApproveFinder $conditionsToApproveFinder
+     */
     public function __construct(
         Context $context,
         TranslatorInterface $translator,
@@ -53,26 +59,6 @@ class CheckoutPaymentStepCore extends AbstractCheckoutStep
 
     public function handleRequest(array $requestParams = [])
     {
-        $cart = $this->getCheckoutSession()->getCart();
-        $allProductsInStock = $cart->isAllProductsInStock();
-        $allProductsExist = $cart->checkAllProductsAreStillAvailableInThisState();
-        $allProductsHaveMinimalQuantity = $cart->checkAllProductsHaveMinimalQuantities();
-
-        if ($allProductsInStock !== true || $allProductsExist !== true || $allProductsHaveMinimalQuantity !== true) {
-            $cartShowUrl = $this->context->link->getPageLink(
-                'cart',
-                null,
-                $this->context->language->id,
-                [
-                    'action' => 'show',
-                ],
-                false,
-                null,
-                false
-            );
-            Tools::redirect($cartShowUrl);
-        }
-
         if (isset($requestParams['select_payment_option'])) {
             $this->selected_payment_option = $requestParams['select_payment_option'];
         }
@@ -104,7 +90,10 @@ class CheckoutPaymentStepCore extends AbstractCheckoutStep
         } else {
             $selectedDeliveryOption = 0;
         }
-        unset($selectedDeliveryOption['product_list']);
+
+        if (true === is_array($selectedDeliveryOption) && isset($selectedDeliveryOption['product_list'])) {
+            unset($selectedDeliveryOption['product_list']);
+        }
 
         $assignedVars = [
             'is_free' => $isFree,

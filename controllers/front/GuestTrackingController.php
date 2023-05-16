@@ -24,11 +24,15 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 use PrestaShop\PrestaShop\Adapter\Presenter\Order\OrderPresenter;
+use PrestaShop\PrestaShop\Core\Security\PasswordPolicyConfiguration;
 
 class GuestTrackingControllerCore extends FrontController
 {
+    /** @var bool */
     public $ssl = true;
+    /** @var bool */
     public $auth = false;
+    /** @var string */
     public $php_self = 'guest-tracking';
     protected $order;
 
@@ -79,6 +83,7 @@ class GuestTrackingControllerCore extends FrontController
 
         if (Tools::isSubmit('submitTransformGuestToCustomer') && Tools::getValue('password')) {
             $customer = new Customer((int) $this->order->id_customer);
+            /** @var string $password */
             $password = Tools::getValue('password');
 
             if (empty($password)) {
@@ -87,10 +92,16 @@ class GuestTrackingControllerCore extends FrontController
                     [],
                     'Shop.Forms.Help'
                 );
-            } elseif (strlen($password) < Validate::PASSWORD_LENGTH) {
+            } elseif (!Validate::isAcceptablePasswordLength($password)) {
                 $this->errors[] = $this->trans(
-                    'Your password must be at least %min% characters long.',
-                    ['%min%' => Validate::PASSWORD_LENGTH],
+                    'Your password length must be between %d and %d',
+                    [Configuration::get(PasswordPolicyConfiguration::CONFIGURATION_MINIMUM_LENGTH), Configuration::get(PasswordPolicyConfiguration::CONFIGURATION_MAXIMUM_LENGTH)],
+                    'Shop.Forms.Help'
+                );
+            } elseif (!Validate::isAcceptablePasswordScore($password)) {
+                $this->errors[] = $this->trans(
+                    'Customer password is too weak',
+                    [],
                     'Shop.Forms.Help'
                 );
             // Prevent error
@@ -141,7 +152,7 @@ class GuestTrackingControllerCore extends FrontController
         }
 
         // Kept for backwards compatibility (is_customer), inline it in later versions
-        $registered_customer_exists = Customer::customerExists(Tools::getValue('email'), false, true);
+        $registered_customer_exists = Customer::customerExists(Tools::getValue('email'));
 
         $this->context->smarty->assign([
             'order' => (new OrderPresenter())->present($this->order),

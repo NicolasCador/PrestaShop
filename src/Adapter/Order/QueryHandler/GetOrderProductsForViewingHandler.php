@@ -43,10 +43,10 @@ use PrestaShop\PrestaShop\Core\Domain\Order\QueryResult\OrderProductCustomizatio
 use PrestaShop\PrestaShop\Core\Domain\Order\QueryResult\OrderProductCustomizationsForViewing;
 use PrestaShop\PrestaShop\Core\Domain\Order\QueryResult\OrderProductForViewing;
 use PrestaShop\PrestaShop\Core\Domain\Order\QueryResult\OrderProductsForViewing;
-use PrestaShop\PrestaShop\Core\Domain\ValueObject\QuerySorting;
 use PrestaShop\PrestaShop\Core\Image\Parser\ImageTagSourceParserInterface;
 use PrestaShop\PrestaShop\Core\Localization\CLDR\ComputingPrecision;
 use PrestaShop\PrestaShop\Core\Localization\Locale;
+use PrestaShop\PrestaShop\Core\Util\Sorter;
 use Product;
 use Shop;
 use StockAvailable;
@@ -175,13 +175,14 @@ final class GetOrderProductsForViewingHandler extends AbstractOrderHandler imple
 
         unset($product);
 
-        if (QuerySorting::DESC === $query->getProductsSorting()->getValue()) {
-            // reorder products by order_detail_id DESC
-            krsort($products);
-        } else {
-            // reorder products by order_detail_id ASC
-            ksort($products);
-        }
+        // Sort products by Reference ID (and if equals (like combination) by Supplier Reference)
+        $sorter = new Sorter();
+        $products = $sorter->natural(
+            $products,
+            $query->getProductsSorting()->getValue(),
+            'product_reference',
+            'product_supplier_reference'
+        );
 
         $productsForViewing = [];
 
@@ -198,8 +199,7 @@ final class GetOrderProductsForViewingHandler extends AbstractOrderHandler imple
                 $unitPrice = (new DecimalNumber((string) $unitPrice))->round($precision, $this->getNumberRoundMode());
             }
 
-            $totalPrice = $unitPrice *
-                (!empty($product['customizedDatas']) ? $product['customizationQuantityTotal'] : $product['product_quantity']);
+            $totalPrice = $unitPrice * $product['product_quantity'];
 
             $unitPriceFormatted = $this->locale->formatPrice($unitPrice, $currency->iso_code);
             $totalPriceFormatted = $this->locale->formatPrice($totalPrice, $currency->iso_code);

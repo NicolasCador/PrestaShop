@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -77,19 +76,13 @@ class SqlTranslationLoader implements LoaderInterface
         $selectTranslationsQuery = '
             SELECT `key`, `translation`, `domain`
             FROM `' . _DB_PREFIX_ . 'translation`
-            WHERE `id_lang` = ' . $localeResults[$locale]['id_lang'];
+            WHERE `id_lang` = ' . $localeResults[$locale]['id_lang'] . '
+            AND theme ' . ($this->theme !== null ? '= "' . $this->theme->getName() . '"' : 'IS NULL');
+
         $translations = Db::getInstance()->executeS($selectTranslationsQuery) ?: [];
 
         $catalogue = new MessageCatalogue($locale);
         $this->addTranslationsToCatalogue($translations, $catalogue);
-
-        if (null !== $this->theme) {
-            $selectThemeTranslationsQuery =
-                $selectTranslationsQuery . "\n" .
-                "AND theme = '" . $this->theme->getName() . "'";
-            $themeTranslations = Db::getInstance()->executeS($selectThemeTranslationsQuery) ?: [];
-            $this->addTranslationsToCatalogue($themeTranslations, $catalogue);
-        }
 
         return $catalogue;
     }

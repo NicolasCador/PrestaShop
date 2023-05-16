@@ -32,7 +32,6 @@ use PrestaShop\PrestaShop\Core\Domain\Currency\Command\BulkToggleCurrenciesStatu
 use PrestaShop\PrestaShop\Core\Domain\Currency\Command\DeleteCurrencyCommand;
 use PrestaShop\PrestaShop\Core\Domain\Currency\Command\RefreshExchangeRatesCommand;
 use PrestaShop\PrestaShop\Core\Domain\Currency\Command\ToggleCurrencyStatusCommand;
-use PrestaShop\PrestaShop\Core\Domain\Currency\Exception\AutomateExchangeRatesUpdateException;
 use PrestaShop\PrestaShop\Core\Domain\Currency\Exception\BulkDeleteCurrenciesException;
 use PrestaShop\PrestaShop\Core\Domain\Currency\Exception\BulkToggleCurrenciesException;
 use PrestaShop\PrestaShop\Core\Domain\Currency\Exception\CannotDeleteDefaultCurrencyException;
@@ -59,11 +58,11 @@ use PrestaShop\PrestaShop\Core\Localization\CLDR\LocaleRepository as CldrLocaleR
 use PrestaShop\PrestaShop\Core\Localization\Currency\PatternTransformer;
 use PrestaShop\PrestaShop\Core\Localization\Locale\Repository as LocaleRepository;
 use PrestaShop\PrestaShop\Core\Search\Filters\CurrencyFilters;
+use PrestaShop\PrestaShop\Core\Security\Permission;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use PrestaShopBundle\Entity\Repository\LangRepository;
 use PrestaShopBundle\Security\Annotation\AdminSecurity;
 use PrestaShopBundle\Security\Annotation\DemoRestricted;
-use PrestaShopBundle\Security\Voter\PageVoter;
 use PrestaShopBundle\Service\Grid\ResponseBuilder;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -145,7 +144,7 @@ class CurrencyController extends FrameworkBundleAdminController
         try {
             $result = $this->getCurrencyFormHandler()->handle($currencyForm);
             if (null !== $result->getIdentifiableObjectId()) {
-                $this->addFlash('success', $this->trans('Successful creation.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful creation', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_currencies_index');
             }
@@ -156,6 +155,7 @@ class CurrencyController extends FrameworkBundleAdminController
         return $this->render('@PrestaShop/Admin/Improve/International/Currency/create.html.twig', [
             'isShopFeatureEnabled' => $multiStoreFeature->isUsed(),
             'currencyForm' => $currencyForm->createView(),
+            'layoutTitle' => $this->trans('New currency', 'Admin.Navigation.Menu'),
         ]);
     }
 
@@ -184,7 +184,7 @@ class CurrencyController extends FrameworkBundleAdminController
             $result = $this->getCurrencyFormHandler()->handleFor($currencyId, $currencyForm);
 
             if ($result->isSubmitted() && $result->isValid()) {
-                $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_currencies_index');
             }
@@ -195,6 +195,13 @@ class CurrencyController extends FrameworkBundleAdminController
         $templateVars = [
             'isShopFeatureEnabled' => $multiStoreFeature->isUsed(),
             'currencyForm' => $currencyForm->createView(),
+            'layoutTitle' => $this->trans(
+                'Editing currency %name%',
+                'Admin.Navigation.Menu',
+                [
+                    '%name%' => $currencyForm->getData()['names'][$this->getContextLangId()],
+                ]
+            ),
         ];
         try {
             $languageData = $this->getLanguagesData($currencyForm->getData()['iso_code']);
@@ -221,6 +228,8 @@ class CurrencyController extends FrameworkBundleAdminController
         $localeRepository = $this->get('prestashop.core.localization.locale.repository');
         /** @var CldrLocaleRepository $cldrLocaleRepository */
         $cldrLocaleRepository = $this->get('prestashop.core.localization.cldr.locale_repository');
+        /** @var PatternTransformer $transformer */
+        $transformer = $this->get('prestashop.core.localization.currency.pattern_transformer');
 
         $languagesData = [];
         /** @var LanguageInterface $language */
@@ -230,7 +239,6 @@ class CurrencyController extends FrameworkBundleAdminController
             $cldrCurrency = $cldrLocale->getCurrency($currencyIsoCode);
             $priceSpecification = $locale->getPriceSpecification($currencyIsoCode);
 
-            $transformer = new PatternTransformer();
             $transformations = [];
             foreach (PatternTransformer::ALLOWED_TRANSFORMATIONS as $transformationType) {
                 $transformations[$transformationType] = $transformer->transform(
@@ -276,7 +284,7 @@ class CurrencyController extends FrameworkBundleAdminController
             return $this->redirectToRoute('admin_currencies_index');
         }
 
-        $this->addFlash('success', $this->trans('Successful deletion.', 'Admin.Notifications.Success'));
+        $this->addFlash('success', $this->trans('Successful deletion', 'Admin.Notifications.Success'));
 
         return $this->redirectToRoute('admin_currencies_index');
     }
@@ -377,7 +385,7 @@ class CurrencyController extends FrameworkBundleAdminController
         try {
             $this->getCommandBus()->handle(new RefreshExchangeRatesCommand());
 
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (CannotRefreshExchangeRatesException $exception) {
             $this->addFlash('error', $exception->getMessage());
         }
@@ -405,7 +413,7 @@ class CurrencyController extends FrameworkBundleAdminController
 
         $authLevel = $this->authorizationLevel($request->attributes->get('_legacy_controller'));
 
-        if (!in_array($authLevel, [PageVoter::LEVEL_UPDATE, PageVoter::LEVEL_DELETE])) {
+        if (!in_array($authLevel, [Permission::LEVEL_UPDATE, Permission::LEVEL_DELETE])) {
             return $this->json([
                 'status' => false,
                 'message' => $this->trans(
@@ -424,7 +432,7 @@ class CurrencyController extends FrameworkBundleAdminController
 
         $response = [
             'status' => false,
-            'message' => $this->trans('Unexpected error occurred.', 'Admin.Notifications.Error'),
+            'message' => $this->trans('An unexpected error occurred.', 'Admin.Notifications.Error'),
         ];
         $statusCode = Response::HTTP_BAD_REQUEST;
 
@@ -525,7 +533,7 @@ class CurrencyController extends FrameworkBundleAdminController
 
             $this->addFlash(
                 'success',
-                $this->trans('The selection has been successfully deleted.', 'Admin.Notifications.Success')
+                $this->trans('The selection has been successfully deleted', 'Admin.Notifications.Success')
             );
         } catch (CurrencyException $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
@@ -586,15 +594,6 @@ class CurrencyController extends FrameworkBundleAdminController
                 CurrencyConstraintException::EMPTY_BULK_DELETE => $this->trans(
                     'You must select at least one item to perform a bulk action.',
                     'Admin.Notifications.Error'
-                ),
-            ],
-            AutomateExchangeRatesUpdateException::class => [
-                AutomateExchangeRatesUpdateException::CRON_TASK_MANAGER_MODULE_NOT_INSTALLED => $this->trans(
-                    'Please install the %module_name% module before using this feature.',
-                    'Admin.International.Notification',
-                    [
-                        '%module_name%' => 'cronjobs',
-                    ]
                 ),
             ],
             DefaultCurrencyInMultiShopException::class => [

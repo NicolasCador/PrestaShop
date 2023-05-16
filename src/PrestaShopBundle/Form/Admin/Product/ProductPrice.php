@@ -27,23 +27,24 @@
 namespace PrestaShopBundle\Form\Admin\Product;
 
 use Currency;
-use PrestaShop\PrestaShop\Adapter\Configuration;
 use PrestaShop\PrestaShop\Adapter\Country\CountryDataProvider;
 use PrestaShop\PrestaShop\Adapter\Currency\CurrencyDataProvider;
-use PrestaShop\PrestaShop\Adapter\Customer\CustomerDataProvider;
 use PrestaShop\PrestaShop\Adapter\Group\GroupDataProvider;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PrestaShop\PrestaShop\Adapter\Shop\Context;
 use PrestaShop\PrestaShop\Adapter\Tax\TaxRuleDataProvider;
 use PrestaShopBundle\Form\Admin\Type\CommonAbstractType;
+use PrestaShopBundle\Form\FormHelper;
 use Symfony\Component\Form\Extension\Core\Type as FormType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Routing\Router;
-use Symfony\Component\Translation\TranslatorInterface;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major.
+ *
  * This form class is responsible to generate the product price form.
  */
 class ProductPrice extends CommonAbstractType
@@ -52,10 +53,6 @@ class ProductPrice extends CommonAbstractType
     // however the ID is required for some fields so we use a default one:
     public const DEFAULT_PRODUCT_ID_FOR_FORM_CREATION = 1;
 
-    /**
-     * @var Configuration
-     */
-    private $configuration;
     /**
      * @var CountryDataProvider
      */
@@ -68,10 +65,6 @@ class ProductPrice extends CommonAbstractType
      * @var CurrencyDataProvider
      */
     public $currencyDataprovider;
-    /**
-     * @var CustomerDataProvider
-     */
-    private $customerDataprovider;
     /**
      * @var float
      */
@@ -116,7 +109,6 @@ class ProductPrice extends CommonAbstractType
      * @param CurrencyDataProvider $currencyDataprovider
      * @param GroupDataProvider $groupDataprovider
      * @param LegacyContext $legacyContext
-     * @param CustomerDataProvider $customerDataprovider
      */
     public function __construct(
         $translator,
@@ -126,22 +118,19 @@ class ProductPrice extends CommonAbstractType
         $countryDataprovider,
         $currencyDataprovider,
         $groupDataprovider,
-        $legacyContext,
-        $customerDataprovider
+        $legacyContext
     ) {
         $this->translator = $translator;
         $this->router = $router;
-        $this->configuration = $this->getConfiguration();
         $this->shopContextAdapter = $shopContextAdapter;
         $this->countryDataprovider = $countryDataprovider;
         $this->currencyDataprovider = $currencyDataprovider;
         $this->groupDataprovider = $groupDataprovider;
-        $this->customerDataprovider = $customerDataprovider;
         $this->legacyContext = $legacyContext;
         $this->tax_rules_rates = $taxDataProvider->getTaxRulesGroupWithRates();
         $this->eco_tax_rate = $taxDataProvider->getProductEcotaxRate();
         $this->currency = $legacyContext->getContext()->currency;
-        $this->tax_rules = $this->formatDataChoicesList(
+        $this->tax_rules = FormHelper::formatDataChoicesList(
             $taxDataProvider->getTaxRulesGroups(true),
             'id_tax_rules_group'
         );
@@ -160,7 +149,7 @@ class ProductPrice extends CommonAbstractType
             [
                 'required' => false,
                 'label' => $this->translator->trans('Retail price (tax excl.)', [], 'Admin.Catalog.Feature'),
-                'attr' => ['data-display-price-precision' => self::PRESTASHOP_DECIMALS],
+                'attr' => ['data-display-price-precision' => FormHelper::DEFAULT_PRICE_PRECISION],
                 'currency' => $this->currency->iso_code,
                 'constraints' => [
                     new Assert\NotBlank(),
@@ -204,10 +193,7 @@ class ProductPrice extends CommonAbstractType
                             'data-computation-method' => $this->tax_rules_rates[$val]['computation_method'],
                         ];
                     },
-                    'attr' => [
-                        'data-toggle' => 'select2',
-                        'data-minimumResultsForSearch' => '7',
-                    ],
+                    'autocomplete' => true,
                     'label' => $this->translator->trans('Tax rule', [], 'Admin.Catalog.Feature'),
                 ]
             )
@@ -267,7 +253,7 @@ class ProductPrice extends CommonAbstractType
 
         //generates fields for price priority
         $specificPricePriorityChoices = [
-            $this->translator->trans('Shop', [], 'Admin.Global') => 'id_shop',
+            $this->translator->trans('Store', [], 'Admin.Global') => 'id_shop',
             $this->translator->trans('Currency', [], 'Admin.Global') => 'id_currency',
             $this->translator->trans('Country', [], 'Admin.Global') => 'id_country',
             $this->translator->trans('Group', [], 'Admin.Global') => 'id_group',

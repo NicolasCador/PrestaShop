@@ -39,11 +39,6 @@ class ValidateCoreTest extends TestCase
         $this->assertEquals($expected, Validate::isIp2Long($input));
     }
 
-    public function testIsAnything()
-    {
-        $this->assertTrue(Validate::isAnything());
-    }
-
     /**
      * @dataProvider isEmailDataProvider
      */
@@ -251,7 +246,7 @@ class ValidateCoreTest extends TestCase
             [true, 'john#doe@prestashop.com'],
             [false, ''],
             [false, 'john.doe@prestashop,com'],
-            [true, 'john.doe@prestashop'],
+            [false, 'john.doe@prestashop'],
             [true, 'john.doe@сайт.рф'],
             [true, 'john.doe@xn--80aswg.xn--p1ai'],
             [false, 'иван@prestashop.com'], // rfc6531 valid but not swift mailer compatible

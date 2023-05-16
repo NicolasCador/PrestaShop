@@ -92,7 +92,7 @@ class SqlManagerController extends FrameworkBundleAdminController
                     'icon' => 'add_circle_outline',
                 ],
             ],
-            'layoutTitle' => $this->trans('SQL Manager', 'Admin.Navigation.Menu'),
+            'layoutTitle' => $this->trans('SQL manager', 'Admin.Navigation.Menu'),
             'enableSidebar' => true,
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'requestSqlSettingsForm' => $settingsForm->createView(),
@@ -149,7 +149,7 @@ class SqlManagerController extends FrameworkBundleAdminController
 
         if ($settingForm->isSubmitted()) {
             if (!$errors = $handler->save($settingForm->getData())) {
-                $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
             } else {
                 $this->flashErrors($errors);
             }
@@ -182,7 +182,7 @@ class SqlManagerController extends FrameworkBundleAdminController
             $result = $this->getSqlRequestFormHandler()->handle($sqlRequestForm);
 
             if (null !== $result->getIdentifiableObjectId()) {
-                $this->addFlash('success', $this->trans('Successful creation.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful creation', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_sql_requests_index');
             }
@@ -191,7 +191,7 @@ class SqlManagerController extends FrameworkBundleAdminController
         }
 
         return $this->render('@PrestaShop/Admin/Configure/AdvancedParameters/RequestSql/create.html.twig', [
-            'layoutTitle' => $this->trans('SQL Manager', 'Admin.Navigation.Menu'),
+            'layoutTitle' => $this->trans('New SQL query', 'Admin.Navigation.Menu'),
             'enableSidebar' => true,
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'requestSqlForm' => $sqlRequestForm->createView(),
@@ -219,7 +219,7 @@ class SqlManagerController extends FrameworkBundleAdminController
      *
      * @return Response
      */
-    public function editAction($sqlRequestId, Request $request)
+    public function editAction(int $sqlRequestId, Request $request)
     {
         $sqlRequestForm = $this->getSqlRequestFormBuilder()->getFormFor($sqlRequestId);
         $sqlRequestForm->handleRequest($request);
@@ -228,7 +228,7 @@ class SqlManagerController extends FrameworkBundleAdminController
             $result = $this->getSqlRequestFormHandler()->handleFor($sqlRequestId, $sqlRequestForm);
 
             if ($result->isSubmitted() && $result->isValid()) {
-                $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_sql_requests_index');
             }
@@ -244,7 +244,7 @@ class SqlManagerController extends FrameworkBundleAdminController
         }
 
         return $this->render('@PrestaShop/Admin/Configure/AdvancedParameters/RequestSql/edit.html.twig', [
-            'layoutTitle' => $this->trans('SQL Manager', 'Admin.Navigation.Menu'),
+            'layoutTitle' => $this->trans('Editing SQL query %query%', 'Admin.Navigation.Menu', ['%query%' => $sqlRequestForm->getData()['name']]),
             'enableSidebar' => true,
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'requestSqlForm' => $sqlRequestForm->createView(),
@@ -266,7 +266,7 @@ class SqlManagerController extends FrameworkBundleAdminController
      *
      * @return RedirectResponse
      */
-    public function deleteAction($sqlRequestId)
+    public function deleteAction(int $sqlRequestId)
     {
         try {
             $deleteSqlRequestCommand = new DeleteSqlRequestCommand(
@@ -300,14 +300,14 @@ class SqlManagerController extends FrameworkBundleAdminController
     public function deleteBulkAction(Request $request)
     {
         try {
-            $requestSqlIds = $request->request->get('sql_request_bulk');
+            $requestSqlIds = $this->getBulkSqlRequestFromRequest($request);
             $bulkDeleteSqlRequestCommand = new BulkDeleteSqlRequestCommand($requestSqlIds);
 
             $this->getCommandBus()->handle($bulkDeleteSqlRequestCommand);
 
             $this->addFlash(
                 'success',
-                $this->trans('The selection has been successfully deleted.', 'Admin.Notifications.Success')
+                $this->trans('The selection has been successfully deleted', 'Admin.Notifications.Success')
             );
         } catch (SqlRequestException $e) {
             $this->addFlash('error', $this->handleException($e));
@@ -330,7 +330,7 @@ class SqlManagerController extends FrameworkBundleAdminController
      *
      * @return Response
      */
-    public function viewAction(Request $request, $sqlRequestId)
+    public function viewAction(Request $request, int $sqlRequestId)
     {
         try {
             $query = new GetSqlRequestExecutionResult($sqlRequestId);
@@ -344,7 +344,7 @@ class SqlManagerController extends FrameworkBundleAdminController
 
         return $this->render('@PrestaShop/Admin/Configure/AdvancedParameters/RequestSql/view.html.twig', [
             'layoutHeaderToolbarBtn' => [],
-            'layoutTitle' => $this->trans('SQL Manager', 'Admin.Navigation.Menu'),
+            'layoutTitle' => $this->trans('Result of SQL query', 'Admin.Navigation.Menu'),
             'enableSidebar' => true,
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'sqlRequestResult' => $sqlRequestExecutionResult,
@@ -364,7 +364,7 @@ class SqlManagerController extends FrameworkBundleAdminController
      *
      * @return RedirectResponse|BinaryFileResponse
      */
-    public function exportAction($sqlRequestId)
+    public function exportAction(int $sqlRequestId)
     {
         $requestSqlExporter = $this->get('prestashop.core.sql_manager.exporter.sql_request_exporter');
 
@@ -600,5 +600,23 @@ class SqlManagerController extends FrameworkBundleAdminController
         $databaseTablesList = $this->getQueryBus()->handle(new GetDatabaseTablesList());
 
         return $databaseTablesList->getTables();
+    }
+
+    /**
+     * Get SQL Request IDs from request for bulk actions.
+     *
+     * @param Request $request
+     *
+     * @return int[]
+     */
+    protected function getBulkSqlRequestFromRequest(Request $request): array
+    {
+        $sqlRequestIds = $request->request->get('sql_request_bulk');
+
+        if (!is_array($sqlRequestIds)) {
+            return [];
+        }
+
+        return array_map('intval', $sqlRequestIds);
     }
 }

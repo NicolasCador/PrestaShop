@@ -26,7 +26,7 @@
 import PerfectScrollbar from 'perfect-scrollbar';
 import 'perfect-scrollbar/css/perfect-scrollbar.css';
 import getAnimationEvent from './app/utils/animations';
-import NavbarTransitionHandler from './components/navbar-transition-handler';
+import {NavbarTransitionHandler, MAX_MOBILE_WIDTH} from './components/navbar-transition-handler';
 import GlobalMap from './global-map';
 
 const {$} = window;
@@ -61,15 +61,17 @@ export default class NavBar {
           });
         }
 
-        $navBar.find('.link-levelone').hover(
-          function onMouseEnter() {
+        $navBar.find('.link-levelone').on(
+          'mouseenter',
+          function () {
             const itemOffsetTop = $(this).position().top;
             $(this).addClass('link-hover');
             $(this)
               .find('ul.submenu')
               .css('top', itemOffsetTop);
           },
-          function onMouseLeave() {
+        ).on('mouseleave',
+          function () {
             $(this).removeClass('link-hover');
           },
         );
@@ -159,7 +161,6 @@ export default class NavBar {
         });
 
         addMobileBodyClickListener();
-        const MAX_MOBILE_WIDTH = 1023;
         const windowWidth = <number>$(window).width();
 
         if (windowWidth <= MAX_MOBILE_WIDTH) {
@@ -179,6 +180,7 @@ export default class NavBar {
             && currentWindowWidth <= MAX_MOBILE_WIDTH
           ) {
             this.mobileNav();
+            $('nav.nav-bar ul.main-menu').removeClass('sidebar-closed');
           }
         });
       }
@@ -245,9 +247,6 @@ export default class NavBar {
       .find('.employee_avatar .material-icons, .employee_avatar span')
       .wrap(`<a href='${profileLink}'></a>`);
     $('.js-mobile-menu').on('click', expand);
-    $('.js-notifs_dropdown').css({
-      height: window.innerHeight,
-    });
 
     function expand() {
       if ($('div.notification-center.dropdown').hasClass('open')) {

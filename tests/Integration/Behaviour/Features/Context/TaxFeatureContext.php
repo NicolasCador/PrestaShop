@@ -59,7 +59,7 @@ class TaxFeatureContext extends AbstractPrestaShopFeatureContext
     protected $carrierFeatureContext;
 
     /**
-     * @var ProductFeatureContext
+     * @var LegacyProductFeatureContext
      */
     protected $productFeatureContext;
 
@@ -70,8 +70,8 @@ class TaxFeatureContext extends AbstractPrestaShopFeatureContext
         $environment = $scope->getEnvironment();
         /** @var CarrierFeatureContext $carrierFeatureContext */
         $carrierFeatureContext = $environment->getContext(CarrierFeatureContext::class);
-        /** @var ProductFeatureContext $productFeatureContext */
-        $productFeatureContext = $environment->getContext(ProductFeatureContext::class);
+        /** @var LegacyProductFeatureContext $productFeatureContext */
+        $productFeatureContext = $environment->getContext(LegacyProductFeatureContext::class);
 
         $this->carrierFeatureContext = $carrierFeatureContext;
         $this->productFeatureContext = $productFeatureContext;
@@ -202,5 +202,15 @@ class TaxFeatureContext extends AbstractPrestaShopFeatureContext
         $this->checkTaxRuleWithNameExists($taxName);
         $carrier = $this->carrierFeatureContext->getCarrierWithName($carrierName);
         $carrier->setTaxRulesGroup($this->taxRuleGroups[$taxName]->id);
+    }
+
+    /**
+     * @Given /^Ecotax belongs to tax group "(.+)"$/
+     */
+    public function setEcotaxTaxRuleGroup($taxName)
+    {
+        $this->checkTaxRuleWithNameExists($taxName);
+        $configuration = CommonFeatureContext::getContainer()->get('prestashop.adapter.legacy.configuration');
+        $configuration->set('PS_ECOTAX_TAX_RULES_GROUP_ID', $this->taxRuleGroups[$taxName]->id);
     }
 }

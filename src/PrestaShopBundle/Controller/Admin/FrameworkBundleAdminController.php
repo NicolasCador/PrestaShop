@@ -27,21 +27,18 @@
 namespace PrestaShopBundle\Controller\Admin;
 
 use Exception;
-use PrestaShop\PrestaShop\Adapter\Configuration;
-use PrestaShop\PrestaShop\Adapter\Shop\Context;
+use PrestaShop\PrestaShop\Core\Domain\Configuration\ShopConfigurationInterface;
 use PrestaShop\PrestaShop\Core\Grid\GridInterface;
+use PrestaShop\PrestaShop\Core\Help\Documentation;
 use PrestaShop\PrestaShop\Core\Localization\Locale;
 use PrestaShop\PrestaShop\Core\Localization\Locale\Repository as LocaleRepository;
 use PrestaShop\PrestaShop\Core\Module\Exception\ModuleErrorInterface;
-use PrestaShopBundle\Security\Voter\PageVoter;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+use PrestaShop\PrestaShop\Core\Security\Permission;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Form\Form;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Extends The Symfony framework bundle controller to add common functions for PrestaShop needs.
@@ -51,38 +48,16 @@ class FrameworkBundleAdminController extends AbstractController
     public const PRESTASHOP_CORE_CONTROLLERS_TAG = 'prestashop.core.controllers';
 
     /**
-     * @var Configuration
-     */
-    protected $configuration;
-
-    /**
      * @var string|null
      */
     protected $layoutTitle;
 
     /**
-     * Constructor.
+     * @return ShopConfigurationInterface
      */
-    public function __construct()
+    protected function getConfiguration(): ShopConfigurationInterface
     {
-        $this->configuration = new Configuration();
-    }
-
-    /**
-     * @Template
-     *
-     * @deprecated Since 8.0, to be removed in the next major version
-     *
-     * @return array|Response Template vars if the action uses template annotation, or a Response object
-     */
-    public function overviewAction()
-    {
-        @trigger_error(__FUNCTION__ . 'is deprecated since version 8.0 and will be removed in the next major version.', E_USER_DEPRECATED);
-
-        return [
-            'is_shop_context' => (new Context())->isShopContext(),
-            'layoutTitle' => empty($this->layoutTitle) ? '' : $this->trans($this->layoutTitle, 'Admin.Navigation.Menu'),
-        ];
+        return $this->container->get('prestashop.adapter.legacy.configuration');
     }
 
     /**
@@ -100,21 +75,21 @@ class FrameworkBundleAdminController extends AbstractController
     {
         $errors = [];
 
-        if (empty($form)) {
+        if ($form->count() === 0) {
             return $errors;
         }
 
         $translator = $this->get('translator');
 
         foreach ($form->getErrors(true) as $error) {
-            if (!$error->getCause()) {
-                $formId = 'bubbling_errors';
-            } else {
+            if ($error->getCause() && method_exists($error->getCause(), 'getPropertyPath')) {
                 $formId = str_replace(
                     ['.', 'children[', ']', '_data'],
                     ['_', '', '', ''],
                     $error->getCause()->getPropertyPath()
                 );
+            } else {
+                $formId = 'bubbling_errors';
             }
 
             if ($error->getMessagePluralization()) {
@@ -122,13 +97,13 @@ class FrameworkBundleAdminController extends AbstractController
                     $error->getMessageTemplate(),
                     $error->getMessagePluralization(),
                     $error->getMessageParameters(),
-                    'form_error'
+                    'validators'
                 );
             } else {
                 $errors[$formId][] = $translator->trans(
                     $error->getMessageTemplate(),
                     $error->getMessageParameters(),
-                    'form_error'
+                    'validators'
                 );
             }
         }
@@ -146,7 +121,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function dispatchHook($hookName, array $parameters)
     {
-        $this->get('prestashop.core.hook.dispatcher')->dispatchWithParameters($hookName, $parameters);
+        $this->container->get('prestashop.core.hook.dispatcher')->dispatchWithParameters($hookName, $parameters);
     }
 
     /**
@@ -163,7 +138,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function renderHook($hookName, array $parameters)
     {
-        return $this->get('prestashop.core.hook.dispatcher')->renderForParameters($hookName, $parameters)->getContent();
+        return $this->container->get('prestashop.core.hook.dispatcher')->renderForParameters($hookName, $parameters)->getContent();
     }
 
     /**
@@ -176,18 +151,16 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function generateSidebarLink($section, $title = false)
     {
-        $version = $this->get('prestashop.core.foundation.version')->getSemVersion();
         $legacyContext = $this->get('prestashop.adapter.legacy.context');
 
         if (empty($title)) {
             $title = $this->trans('Help', 'Admin.Global');
         }
 
-        $docLink = urlencode('https://help.prestashop.com/' . $legacyContext->getEmployeeLanguageIso() . '/doc/'
-            . $section . '?version=' . $version . '&country=' . $legacyContext->getEmployeeLanguageIso());
+        $iso = (string) $legacyContext->getEmployeeLanguageIso();
 
         return $this->generateUrl('admin_common_sidebar', [
-            'url' => $docLink,
+            'url' => $this->container->get(Documentation::class)->generateLink($section, $iso),
             'title' => $title,
         ]);
     }
@@ -200,6 +173,16 @@ class FrameworkBundleAdminController extends AbstractController
     protected function getContext()
     {
         return $this->get('prestashop.adapter.legacy.context')->getContext();
+    }
+
+    /**
+     * @return string
+     *
+     * //@todo: is there a better way using currency iso_code?
+     */
+    protected function getContextCurrencyIso(): string
+    {
+        return $this->getContext()->currency->iso_code;
     }
 
     /**
@@ -230,7 +213,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function langToLocale($lang)
     {
-        return $this->get('prestashop.service.translation')->langToLocale($lang);
+        return $this->container->get('prestashop.service.translation')->langToLocale($lang);
     }
 
     /**
@@ -238,7 +221,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function isDemoModeEnabled()
     {
-        return $this->get('prestashop.adapter.legacy.configuration')->get('_PS_MODE_DEMO_');
+        return $this->getConfiguration()->get('_PS_MODE_DEMO_');
     }
 
     /**
@@ -260,20 +243,20 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function authorizationLevel($controller)
     {
-        if ($this->isGranted(PageVoter::DELETE, $controller . '_')) {
-            return PageVoter::LEVEL_DELETE;
+        if ($this->isGranted(Permission::DELETE, $controller)) {
+            return Permission::LEVEL_DELETE;
         }
 
-        if ($this->isGranted(PageVoter::CREATE, $controller . '_')) {
-            return PageVoter::LEVEL_CREATE;
+        if ($this->isGranted(Permission::CREATE, $controller)) {
+            return Permission::LEVEL_CREATE;
         }
 
-        if ($this->isGranted(PageVoter::UPDATE, $controller . '_')) {
-            return PageVoter::LEVEL_UPDATE;
+        if ($this->isGranted(Permission::UPDATE, $controller)) {
+            return Permission::LEVEL_UPDATE;
         }
 
-        if ($this->isGranted(PageVoter::READ, $controller . '_')) {
-            return PageVoter::LEVEL_READ;
+        if ($this->isGranted(Permission::READ, $controller)) {
+            return Permission::LEVEL_READ;
         }
 
         return 0;
@@ -290,7 +273,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function trans($key, $domain, array $parameters = [])
     {
-        return $this->get('translator')->trans($key, $parameters, $domain);
+        return $this->container->get('translator')->trans($key, $parameters, $domain);
     }
 
     /**
@@ -315,7 +298,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function redirectToDefaultPage()
     {
-        $legacyContext = $this->get('prestashop.adapter.legacy.context');
+        $legacyContext = $this->container->get('prestashop.adapter.legacy.context');
         $defaultTab = $legacyContext->getDefaultEmployeeTab();
 
         return $this->redirect($legacyContext->getAdminLink($defaultTab));
@@ -335,13 +318,13 @@ class FrameworkBundleAdminController extends AbstractController
     protected function actionIsAllowed($action, $object = '', $suffix = '')
     {
         return (
-                $action === 'delete' . $suffix && $this->isGranted(PageVoter::DELETE, $object)
+                $action === 'delete' . $suffix && $this->isGranted(Permission::DELETE, $object)
             ) || (
                 ($action === 'activate' . $suffix || $action === 'deactivate' . $suffix) &&
-                $this->isGranted(PageVoter::UPDATE, $object)
+                $this->isGranted(Permission::UPDATE, $object)
             ) || (
                 ($action === 'duplicate' . $suffix) &&
-                ($this->isGranted(PageVoter::UPDATE, $object) || $this->isGranted(PageVoter::CREATE, $object))
+                ($this->isGranted(Permission::UPDATE, $object) || $this->isGranted(Permission::CREATE, $object))
             );
     }
 
@@ -376,14 +359,14 @@ class FrameworkBundleAdminController extends AbstractController
      * Get fallback error message when something unexpected happens.
      *
      * @param string $type
-     * @param string $code
+     * @param int $code
      * @param string $message
      *
      * @return string
      */
     protected function getFallbackErrorMessage($type, $code, $message = '')
     {
-        $isDebug = $this->get('kernel')->isDebug();
+        $isDebug = $this->container->get('kernel')->isDebug();
         if ($isDebug && !empty($message)) {
             return $this->trans(
                 'An unexpected error occurred. [%type% code %code%]: %message%',
@@ -417,7 +400,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function getAdminLink($controller, array $params, $withToken = true)
     {
-        return $this->get('prestashop.adapter.legacy.context')->getAdminLink($controller, $withToken, $params);
+        return $this->container->get('prestashop.adapter.legacy.context')->getAdminLink($controller, $withToken, $params);
     }
 
     /**
@@ -429,7 +412,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function presentGrid(GridInterface $grid)
     {
-        return $this->get('prestashop.core.grid.presenter.grid_presenter')->present($grid);
+        return $this->container->get('prestashop.core.grid.presenter.grid_presenter')->present($grid);
     }
 
     /**
@@ -439,7 +422,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function getCommandBus()
     {
-        return $this->get('prestashop.core.command_bus');
+        return $this->container->get('prestashop.core.command_bus');
     }
 
     /**
@@ -449,7 +432,7 @@ class FrameworkBundleAdminController extends AbstractController
      */
     protected function getQueryBus()
     {
-        return $this->get('prestashop.core.query_bus');
+        return $this->container->get('prestashop.core.query_bus');
     }
 
     /**

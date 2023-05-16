@@ -35,7 +35,6 @@ import SubmitGridExtension from '@components/grid/extension/submit-grid-action-e
 import SubmitRowActionExtension from '@components/grid/extension/action/row/submit-row-action-extension';
 import LinkRowActionExtension from '@components/grid/extension/link-row-action-extension';
 import LinkableItem from '@components/linkable-item';
-import ChoiceTable from '@components/choice-table';
 import DeleteCustomersBulkActionExtension
   from '@components/grid/extension/action/bulk/customer/delete-customers-bulk-action-extension';
 import DeleteCustomerRowActionExtension
@@ -45,6 +44,7 @@ import FiltersSubmitButtonEnablerExtension
 import ShowcaseCard from '@components/showcase-card/showcase-card';
 import ShowcaseCardCloseExtension from '@components/showcase-card/extension/showcase-card-close-extension';
 import AsyncToggleColumnExtension from '@components/grid/extension/column/common/async-toggle-column-extension';
+import CustomerFormMap from '@pages/customer/customer-form-map';
 
 const {$} = window;
 
@@ -73,11 +73,24 @@ $(() => {
   customerAddressesGrid.addExtension(new SortingExtension());
   customerAddressesGrid.addExtension(new LinkRowActionExtension());
 
+  const customerOrdersGrid = new Grid('customer_order');
+  customerOrdersGrid.addExtension(new SortingExtension());
+  customerOrdersGrid.addExtension(new SubmitRowActionExtension());
+  customerOrdersGrid.addExtension(new LinkRowActionExtension());
+
+  const customerCartsGrid = new Grid('customer_cart');
+  customerCartsGrid.addExtension(new SortingExtension());
+  customerCartsGrid.addExtension(new SubmitRowActionExtension());
+  customerCartsGrid.addExtension(new LinkRowActionExtension());
+
+  const customerBoughtProductsGrid = new Grid('customer_bought_product');
+  customerBoughtProductsGrid.addExtension(new SortingExtension());
+
+  const customerViewedProductsGrid = new Grid('customer_viewed_product');
+  customerViewedProductsGrid.addExtension(new SortingExtension());
+
   const showcaseCard = new ShowcaseCard('customersShowcaseCard');
   showcaseCard.addExtension(new ShowcaseCardCloseExtension());
-
-  // needed for "Group access" input in Add/Edit customer forms
-  new ChoiceTable();
 
   // in customer view page
   // there are a lot of tables
@@ -86,4 +99,55 @@ $(() => {
   new LinkableItem();
 
   new FormSubmitButton();
+
+  // Scroll to the block
+  scrollToBlock();
+
+  // Required fields : Display alert for optin checkbox
+  $(CustomerFormMap.requiredFieldsFormCheckboxOptin).on('click', () => handleRequiredFieldsFormCheckboxOptin());
+
+  function scrollToBlock(): void {
+    const documentURL = new URL(document.URL);
+    const documentHash = documentURL.hash.slice(1);
+
+    if (documentHash === '') {
+      return;
+    }
+
+    const element = document.getElementById(documentHash);
+
+    if (!element) {
+      return;
+    }
+
+    // Fetch its position
+    let positionTop = 0;
+
+    if (element.offsetParent) {
+      let elementParent: HTMLElement|null = element;
+      do {
+        positionTop += elementParent.offsetTop;
+        elementParent = elementParent.offsetParent ? <HTMLElement> (elementParent.offsetParent) : null;
+      } while (elementParent !== null);
+    }
+
+    // Remove the header height
+    positionTop -= document.querySelector('#header_infos')?.getBoundingClientRect()?.height ?? 0;
+    // Remove the title bar height
+    positionTop -= document.querySelector('.header-toolbar')?.getBoundingClientRect()?.height ?? 0;
+    // Remove the  height of the header of the card
+    positionTop -= document.querySelector('.card-header')?.getBoundingClientRect()?.height ?? 0;
+    // Remove the margin-bottom of the card
+    positionTop -= 10;
+
+    // Scroll to the block
+    window.scroll(0, positionTop);
+  }
+
+  function handleRequiredFieldsFormCheckboxOptin(): void {
+    $(CustomerFormMap.requiredFieldsFormAlertOptin).toggleClass(
+      'd-none',
+      !$(CustomerFormMap.requiredFieldsFormCheckboxOptin).is(':checked'),
+    );
+  }
 });

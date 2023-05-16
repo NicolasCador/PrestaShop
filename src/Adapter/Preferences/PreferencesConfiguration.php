@@ -26,9 +26,9 @@
 
 namespace PrestaShop\PrestaShop\Adapter\Preferences;
 
-use Cookie;
 use PrestaShop\PrestaShop\Adapter\Configuration;
 use PrestaShop\PrestaShop\Core\Configuration\DataConfigurationInterface;
+use PrestaShop\PrestaShop\Core\Http\CookieOptions;
 
 /**
  * This class will provide Shop Preferences configuration.
@@ -40,8 +40,9 @@ class PreferencesConfiguration implements DataConfigurationInterface
      */
     private $configuration;
 
-    public function __construct(Configuration $configuration)
-    {
+    public function __construct(
+        Configuration $configuration
+    ) {
         $this->configuration = $configuration;
     }
 
@@ -91,6 +92,8 @@ class PreferencesConfiguration implements DataConfigurationInterface
             ];
         }
 
+        $previousMultistoreFeatureState = $this->configuration->get('PS_MULTISHOP_FEATURE_ACTIVE');
+
         $this->configuration->set('PS_SSL_ENABLED', $configuration['enable_ssl']);
         $this->configuration->set('PS_SSL_ENABLED_EVERYWHERE', $configuration['enable_ssl_everywhere']);
         $this->configuration->set('PS_TOKEN_ENABLE', $configuration['enable_token']);
@@ -121,7 +124,7 @@ class PreferencesConfiguration implements DataConfigurationInterface
             $configuration['enable_ssl'] === false
             || $configuration['enable_ssl_everywhere'] === false
         )
-            && $this->configuration->get('PS_COOKIE_SAMESITE') === Cookie::SAMESITE_NONE;
+            && $this->configuration->get('PS_COOKIE_SAMESITE') === CookieOptions::SAMESITE_NONE;
     }
 
     /**

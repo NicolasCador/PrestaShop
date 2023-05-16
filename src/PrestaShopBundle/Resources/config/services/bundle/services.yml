@@ -19,8 +19,6 @@ services:
     class: PrestaShopBundle\Service\DataUpdater\Admin\ProductInterface
   prestashop.core.admin.page_preference_interface:
     class: PrestaShopBundle\Service\TransitionalBehavior\AdminPagePreferenceInterface
-  prestashop.core.admin.data_provider.addons_interface:
-    class: PrestaShopBundle\Service\DataProvider\Admin\AddonsInterface
   prestashop.core.admin.data_provider.module_interface:
     class: PrestaShopBundle\Service\DataProvider\Admin\ModuleInterface
 
@@ -44,14 +42,11 @@ services:
     class: PrestaShopBundle\Service\Database\DoctrineNamingStrategy
     arguments: [ "%database_prefix%" ]
 
-  prestashop.data_provider.modules.recommended:
-    class: PrestaShopBundle\Service\DataProvider\Admin\RecommendedModules
-    arguments: [ "@router" ]
-
   prestashop.service.product:
     class: PrestaShopBundle\Service\ProductService
     arguments:
       - "@prestashop.adapter.data_provider.product"
+    deprecated: ~
 
   prestashop.service.translation:
     class: PrestaShopBundle\Service\TranslationService
@@ -67,9 +62,9 @@ services:
     class: PrestaShop\PrestaShop\Adapter\Hook\HookDispatcher
     arguments:
       - '@request_stack'
-    calls:
-      - [ addSubscriber, [ "@prestashop.adapter.legacy.hook.subscriber" ] ]
-      - [ addSubscriber, [ "@prestashop.adapter.legacy.block.helper.subscriber" ] ]
+      - !tagged core.legacy.hook.subscriber
+      - '@prestashop.hooks_registry'
+      - '@=service("prestashop.adapter.environment").isDebug()'
 
   prestashop.hook.finder:
     class: PrestaShopBundle\Service\Hook\HookFinder
@@ -93,20 +88,23 @@ services:
       - [ 'setTokenManager', [ '@security.csrf.token_manager' ] ]
       - [ 'setUserProvider', [ "@=service('prestashop.user_provider')" ] ]
 
-  # Addons API Client
-  prestashop.addons.client_api:
-    class: PrestaShopBundle\Service\DataProvider\Marketplace\ApiClient
-    arguments:
-      - "@eight_points_guzzle.client.addons_api"
-      - "@=service('translator').getLocale()"
-      - "@=service('prestashop.adapter.data_provider.country').getIsoCodebyId()"
-      - "@prestashop.adapter.tools"
-      - "@=service('prestashop.adapter.legacy.configuration').get('_PS_BASE_URL_')"
-      - "@=service('prestashop.core.foundation.version').getSemVersion()"
-    calls:
-      - [ "setSslVerification", [ "%prestashop.addons.api_client.verify_ssl%" ] ]
-
   prestashop.multistore.customized_configuration_checker:
     class: PrestaShopBundle\Service\Multistore\CustomizedConfigurationChecker
     arguments:
       - "@prestashop.adapter.legacy.configuration"
+
+  PrestaShopBundle\DependencyInjection\RuntimeConstEnvVarProcessor:
+    public: false
+    tags: [ 'container.env_var_processor' ]
+
+  PrestaShopBundle\Api\StateProvider\HookStatusProvider:
+    tags: [ 'api_platform.state_provider' ]
+    public: false
+    autowire: true
+    arguments:
+      - '@prestashop.core.query_bus'
+
+  PrestaShopBundle\Security\Admin\SessionRenewer:
+    arguments:
+      $storage: "@security.csrf.token_storage"
+    autowire: true

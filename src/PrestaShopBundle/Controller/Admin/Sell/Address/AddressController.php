@@ -141,7 +141,7 @@ class AddressController extends FrameworkBundleAdminController
             $this->getCommandBus()->handle(new DeleteAddressCommand($addressId));
             $this->addFlash(
                 'success',
-                $this->trans('Successful deletion.', 'Admin.Notifications.Success')
+                $this->trans('Successful deletion', 'Admin.Notifications.Success')
             );
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
@@ -173,7 +173,7 @@ class AddressController extends FrameworkBundleAdminController
             $this->getCommandBus()->handle(new BulkDeleteAddressCommand($addressIds));
             $this->addFlash(
                 'success',
-                $this->trans('Successful deletion.', 'Admin.Notifications.Success')
+                $this->trans('Successful deletion', 'Admin.Notifications.Success')
             );
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
@@ -288,7 +288,7 @@ class AddressController extends FrameworkBundleAdminController
         try {
             $handlerResult = $addressFormHandler->handle($addressForm);
             if ($handlerResult->isSubmitted() && $handlerResult->isValid()) {
-                $this->addFlash('success', $this->trans('Successful creation.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful creation', 'Admin.Notifications.Success'));
 
                 if ($request->query->has('submitFormAjax')) {
                     return $this->render(
@@ -311,6 +311,7 @@ class AddressController extends FrameworkBundleAdminController
             'customerId' => $customerId,
             'customerInformation' => $customerInfo,
             'enableSidebar' => true,
+            'layoutTitle' => $this->trans('New address', 'Admin.Navigation.Menu'),
             'displayInIframe' => $request->query->has('submitFormAjax'),
             'addressForm' => $addressForm->createView(),
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
@@ -386,10 +387,11 @@ class AddressController extends FrameworkBundleAdminController
             'enableSidebar' => true,
             'customerId' => $editableAddress->getCustomerId()->getValue(),
             'customerInformation' => $customerInfo,
-            'layoutTitle' => $this->trans('Edit', 'Admin.Actions'),
+            'layoutTitle' => $this->trans('Editing address %alias%', 'Admin.Navigation.Menu', ['%alias%' => $editableAddress->getAddressAlias()]),
             'displayInIframe' => $request->query->has('submitFormAjax'),
             'addressForm' => $addressForm->createView(),
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
+            'cancelPath' => $request->query->has('back') ? $request->query->get('back') : $this->generateUrl('admin_addresses_index'),
         ]);
     }
 
@@ -486,7 +488,7 @@ class AddressController extends FrameworkBundleAdminController
             'enableSidebar' => true,
             'customerId' => $editableAddress->getCustomerId()->getValue(),
             'customerInformation' => $customerInfo,
-            'layoutTitle' => $this->trans('Edit', 'Admin.Actions'),
+            'layoutTitle' => $this->trans('Editing address %alias%', 'Admin.Navigation.Menu', ['%alias%' => $editableAddress->getAddressAlias()]),
             'addressForm' => $addressForm->createView(),
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'cancelPath' => $this->generateUrl('admin_orders_view', ['orderId' => $orderId]),
@@ -587,7 +589,7 @@ class AddressController extends FrameworkBundleAdminController
             'enableSidebar' => true,
             'customerId' => $editableAddress->getCustomerId()->getValue(),
             'customerInformation' => $customerInfo,
-            'layoutTitle' => $this->trans('Edit', 'Admin.Actions'),
+            'layoutTitle' => $this->trans('Editing address %alias%', 'Admin.Navigation.Menu', ['%alias%' => $editableAddress->getAddressAlias()]),
             'addressForm' => $addressForm->createView(),
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'cancelPath' => $this->generateUrl('admin_carts_view', ['cartId' => $cartId]),

@@ -24,6 +24,8 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 
+declare(strict_types=1);
+
 namespace Tests\Integration\PrestaShopBundle\Routing\Converter;
 
 use Link;
@@ -33,7 +35,7 @@ use Tests\TestCase\SymfonyIntegrationTestCase;
 
 class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
 {
-    /** @var Link */
+    /** @var Link|null */
     private $link;
 
     protected function setUp(): void
@@ -45,9 +47,9 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
     }
 
     /**
-     * @return array
+     * @return array<string, array<string|array>>
      */
-    public static function getMigratedControllers()
+    public static function getMigratedControllers(): array
     {
         return [
             'admin_administration' => ['/configure/advanced/administration/', 'AdminAdminPreferences'],
@@ -165,6 +167,10 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
             'admin_metas_set_up_urls_save' => ['/configure/shop/seo-urls/set-up-urls', 'AdminMeta', 'submitOptionsmeta'],
             'admin_metas_generate_robots_text_file' => ['/configure/shop/seo-urls/generate/robots', 'AdminMeta', 'submitRobots'],
 
+            // 'admin_permissions_index' => ['/configure/advanced/permissions/', 'AdminAccess'],
+            // 'admin_permissions_update_tab_permissions' => ['/configure/advanced/permissions/update/permissions/tab', 'AdminAccess', 'updateAccess'],
+            // 'admin_permissions_update_module_permissions' => ['/configure/advanced/permissions/update/permissions/module', 'AdminAccess', 'updateModuleAccess'],
+
             //'admin_module_configure_action' => ['/improve/modules/manage/action/configure/ps_linklist', 'AdminModules', 'configure', ['module_name' => 'ps_linklist']],
             //'admin_module_configure_action_legacy' => ['/improve/modules/manage/action/configure/ps_linklist', 'AdminModules', 'configure', ['configure' => 'ps_linklist']],
 
@@ -241,9 +247,9 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
     }
 
     /**
-     * @return array
+     * @return array<int, array<string|array<string, string>>>
      */
-    public static function getLegacyControllers()
+    public static function getLegacyControllers(): array
     {
         return [
             ['/admin-dev/index.php?controller=AdminLogin', 'AdminLogin'],
@@ -253,35 +259,28 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         ];
     }
 
-    public function testServiceExists()
+    public function testServiceExists(): void
     {
         $converter = self::$kernel->getContainer()->get('prestashop.bundle.routing.converter.legacy_url_converter');
         $this->assertInstanceOf(LegacyUrlConverter::class, $converter);
     }
 
     /**
-     * Looping manually uses MUCH less memory than dataProvider
-     */
-    public function testConverterByParameters()
-    {
-        $migratedControllers = $this->getMigratedControllers();
-        foreach ($migratedControllers as $migratedController) {
-            $expectedUrl = $migratedController[0];
-            $controller = $migratedController[1];
-            $action = isset($migratedController[2]) ? $migratedController[2] : null;
-            $params = isset($migratedController[3]) ? $migratedController[3] : null;
-            $this->dotestConverterByParameters($expectedUrl, $controller, $action, $params);
-        }
-    }
-
-    /**
+     * @dataProvider getMigratedControllers
+     *
      * @param string $expectedUrl
      * @param string $controller
      * @param string|null $action
-     * @param array|null $queryParameters
+     * @param array|null $params
+     *
+     * @return void
      */
-    private function doTestConverterByParameters($expectedUrl, $controller, $action = null, array $queryParameters = null)
-    {
+    public function testConverterByParameters(
+        string $expectedUrl,
+        string $controller,
+        string $action = null,
+        array $params = null
+    ): void {
         /** @var LegacyUrlConverter $converter */
         $converter = self::$kernel->getContainer()->get('prestashop.bundle.routing.converter.legacy_url_converter');
 
@@ -293,8 +292,8 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
                 'controller' => $controller,
                 'action' => $action,
             ];
-            if (null !== $queryParameters) {
-                $parameters = array_merge($parameters, $queryParameters);
+            if (null !== $params) {
+                $parameters = array_merge($parameters, $params);
             }
             $convertedUrl = $converter->convertByParameters($parameters);
         } catch (\Exception $e) {
@@ -306,7 +305,7 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         $this->assertSameUrl($expectedUrl, $convertedUrl);
     }
 
-    public function testTabParameter()
+    public function testTabParameter(): void
     {
         /** @var LegacyUrlConverter $converter */
         $converter = self::$kernel->getContainer()->get('prestashop.bundle.routing.converter.legacy_url_converter');
@@ -332,7 +331,7 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         $this->assertSameUrl('/sell/customers/42/view', $convertedUrl);
     }
 
-    public function testInsensitiveControllersAndActions()
+    public function testInsensitiveControllersAndActions(): void
     {
         /** @var LegacyUrlConverter $converter */
         $converter = self::$kernel->getContainer()->get('prestashop.bundle.routing.converter.legacy_url_converter');
@@ -343,7 +342,7 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         $this->assertSameUrl('/sell/customers/42/view', $convertedUrl);
     }
 
-    public function testIdEqualToOne()
+    public function testIdEqualToOne(): void
     {
         /** @var LegacyUrlConverter $converter */
         $converter = self::$kernel->getContainer()->get('prestashop.bundle.routing.converter.legacy_url_converter');
@@ -353,7 +352,7 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         $this->assertSameUrl('/configure/shop/seo-urls/?id_meta=1&conf=4', $convertedUrl);
     }
 
-    public function testAlreadyConverted()
+    public function testAlreadyConverted(): void
     {
         /** @var LegacyUrlConverter $converter */
         $converter = self::$kernel->getContainer()->get('prestashop.bundle.routing.converter.legacy_url_converter');
@@ -370,57 +369,42 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         $this->assertTrue($convertedUrl . ' is already a converted url' == $caughtException->getMessage());
     }
 
-    public function testLegacyLinkClass()
-    {
-        $migratedControllers = $this->getMigratedControllers();
-        foreach ($migratedControllers as $migratedController) {
-            $expectedUrl = $migratedController[0];
-            $controller = $migratedController[1];
-            $action = isset($migratedController[2]) ? $migratedController[2] : null;
-            $params = isset($migratedController[3]) ? $migratedController[3] : null;
-            $this->doTestLegacyLinkClass($expectedUrl, $controller, $action, $params);
-        }
-    }
-
     /**
+     * @dataProvider getMigratedControllers
+     *
      * @param string $expectedUrl
      * @param string $controller
      * @param string|null $action
-     * @param array|null $queryParameters
+     * @param array|null $params
+     *
+     * @return void
      */
-    private function doTestLegacyLinkClass($expectedUrl, $controller, $action = null, array $queryParameters = null)
-    {
+    public function testLegacyLinkClass(
+        string $expectedUrl,
+        string $controller,
+        string $action = null,
+        array $params = null
+    ): void {
         $parameters = [
             'action' => $action,
         ];
-        if (null !== $queryParameters) {
-            $parameters = array_merge($parameters, $queryParameters);
+        if (null !== $params) {
+            $parameters = array_merge($parameters, $params);
         }
         $linkUrl = $this->link->getAdminLink($controller, true, [], $parameters);
         $this->assertSameUrl($expectedUrl, $linkUrl);
     }
 
-    public function testLegacyClassParameterAction()
-    {
-        $migratedControllers = $this->getMigratedControllers();
-        foreach ($migratedControllers as $migratedController) {
-            $expectedUrl = $migratedController[0];
-            $controller = $migratedController[1];
-            $action = isset($migratedController[2]) ? $migratedController[2] : null;
-            $params = isset($migratedController[3]) ? $migratedController[3] : null;
-            $this->doTestLegacyClassParameterAction($expectedUrl, $controller, $action, $params);
-        }
-    }
-
     /**
-     * @param string $expectedUrl
-     * @param string $controller
-     * @param string|null $action
-     * @param array|null $queryParameters
+     * @dataProvider getMigratedControllers
      */
-    private function doTestLegacyClassParameterAction($expectedUrl, $controller, $action = null, array $queryParameters = null)
-    {
-        $parameters = null !== $queryParameters ? $queryParameters : [];
+    public function testLegacyClassParameterAction(
+        string $expectedUrl,
+        string $controller,
+        string $action = null,
+        array $params = null
+    ): void {
+        $parameters = null !== $params ? $params : [];
         if (null != $action) {
             $parameters[$action] = '';
         }
@@ -428,35 +412,28 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         $this->assertSameUrl($expectedUrl, $linkUrl);
     }
 
-    public function testLegacyControllers()
-    {
-        $legacyControllers = $this->getLegacyControllers();
-        foreach ($legacyControllers as $legacyController) {
-            $expectedUrl = $legacyController[0];
-            $controller = $legacyController[1];
-            $action = isset($legacyController[2]) ? $legacyController[2] : null;
-            $this->doTestLegacyControllers($expectedUrl, $controller, $action);
-        }
-    }
-
     /**
      * Mainly used to ensure the legacy links are not broken.
+     *
+     * @dataProvider getLegacyControllers
      *
      * @param string $expectedUrl
      * @param string $controller
      * @param array|null $parameters
      *
+     * @return void
+     *
      * @throws \PrestaShopException
      * @throws \ReflectionException
      */
-    public function doTestLegacyControllers($expectedUrl, $controller, array $parameters = null)
+    public function testLegacyControllers(string $expectedUrl, string $controller, array $parameters = null)
     {
         $parameters = null === $parameters ? [] : $parameters;
         $linkUrl = $this->link->getAdminLink($controller, true, [], $parameters);
         $this->assertSameUrl($expectedUrl, $linkUrl);
     }
 
-    public function testRedirectionListener()
+    public function testRedirectionListener(): void
     {
         $legacyUrl = $this->link->getAdminBaseLink() . basename(_PS_ADMIN_DIR_) . '/' . \Dispatcher::getInstance()->createUrl('AdminAdminPreferences');
         $this->client->request('GET', $legacyUrl);
@@ -466,7 +443,7 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         $this->assertSameUrl('/configure/advanced/administration/', $location);
     }
 
-    public function testRedirectionListenerWithoutLoop()
+    public function testRedirectionListenerWithoutLoop(): void
     {
         $legacyUrl = $this->link->getAdminBaseLink() . basename(_PS_ADMIN_DIR_) . '/' . \Dispatcher::getInstance()->createUrl('AdminAdminPreferences');
         $this->client->request('GET', $legacyUrl);
@@ -479,7 +456,7 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
         $this->assertFalse($response->isRedirection());
     }
 
-    public function testNoRedirectionListener()
+    public function testNoRedirectionListener(): void
     {
         $legacyUrl = $this->link->getAdminBaseLink() . basename(_PS_ADMIN_DIR_) . '/' . \Dispatcher::getInstance()->createUrl('AdminUnkown');
         $this->client->request('GET', $legacyUrl);
@@ -497,29 +474,12 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
     }
 
     /**
-     * @return array
-     */
-    public function migratedControllers()
-    {
-        return self::getMigratedControllers();
-    }
-
-    /**
-     * @return array
-     */
-    public function legacyControllers()
-    {
-        return self::getLegacyControllers();
-    }
-
-    /**
      * @param string $expectedUrl
      * @param string $url
-     * @param array|null $ignoredParameters
      */
-    private function assertSameUrl(string $expectedUrl, string $url, array $ignoredParameters = null)
+    private function assertSameUrl(string $expectedUrl, string $url)
     {
-        $cleanUrl = $this->getCleanUrl($url, $ignoredParameters);
+        $cleanUrl = $this->getCleanUrl($url);
         $this->assertTrue($expectedUrl == $cleanUrl, sprintf(
             'Expected url %s is different with generated one: %s',
             $expectedUrl,
@@ -529,11 +489,10 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
 
     /**
      * @param string $url
-     * @param array|null $ignoredParameters
      *
      * @return string
      */
-    private function getCleanUrl(string $url, array $ignoredParameters = null): string
+    private function getCleanUrl(string $url): string
     {
         $this->assertNotNull($url);
         $parsedUrl = parse_url($url);
@@ -546,12 +505,6 @@ class LegacyUrlConverterTest extends SymfonyIntegrationTestCase
             $parameters['token'],
             $parameters['_token']
         );
-
-        if (null !== $ignoredParameters) {
-            foreach ($ignoredParameters as $ignoredParameter) {
-                unset($parameters[$ignoredParameter]);
-            }
-        }
 
         $cleanUrl = http_build_url([
             'path' => $parsedUrl['path'],

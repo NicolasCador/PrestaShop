@@ -27,12 +27,14 @@
 namespace PrestaShopBundle\Form\Admin\Configure\ShopParameters\General;
 
 use PrestaShop\PrestaShop\Adapter\Entity\Order;
+use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 use PrestaShopBundle\Form\Admin\Type\SwitchType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Class returning the content of the form in the maintenance page.
@@ -43,7 +45,7 @@ class PreferencesType extends TranslatorAwareType
     /**
      * @var bool
      */
-    private $isMultistoreUsed;
+    private $isShopFeatureEnabled;
 
     /**
      * @var bool
@@ -56,40 +58,49 @@ class PreferencesType extends TranslatorAwareType
     private $isAllShopContext;
 
     /**
+     * @var ConfigurationInterface
+     */
+    private $configuration;
+    /**
+     * @var RequestStack
+     */
+    private $requestStack;
+
+    /**
      * @param TranslatorInterface $translator
      * @param array $locales
-     * @param bool $isMultistoreUsed
+     * @param ConfigurationInterface $configuration
+     * @param bool $isShopFeatureEnabled
      * @param bool $isSingleShopContext
      * @param bool $isAllShopContext
      */
     public function __construct(
+        RequestStack $requestStack,
         TranslatorInterface $translator,
         array $locales,
-        $isMultistoreUsed,
-        $isSingleShopContext,
-        $isAllShopContext
+        ConfigurationInterface $configuration,
+        bool $isShopFeatureEnabled,
+        bool $isSingleShopContext,
+        bool $isAllShopContext
     ) {
         parent::__construct($translator, $locales);
 
-        $this->isMultistoreUsed = $isMultistoreUsed;
+        $this->isShopFeatureEnabled = $isShopFeatureEnabled;
         $this->isSingleShopContext = $isSingleShopContext;
         $this->isAllShopContext = $isAllShopContext;
+        $this->configuration = $configuration;
+        $this->requestStack = $requestStack;
     }
-
-    /**
-     * @var bool
-     */
-    private $isSecure;
 
     /**
      * {@inheritdoc}
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
-        $configuration = $this->getConfiguration();
-        $isSslEnabled = $configuration->getBoolean('PS_SSL_ENABLED');
+        $configuration = $this->configuration;
+        $isSslEnabled = (bool) $configuration->get('PS_SSL_ENABLED');
 
-        if ($this->isSecure) {
+        if ($this->requestStack->getCurrentRequest()->isSecure()) {
             $builder->add('enable_ssl', SwitchType::class, [
                 'label' => $this->trans('Enable SSL', 'Admin.Shopparameters.Feature'),
                 'help' => $this->trans(
@@ -200,7 +211,7 @@ class PreferencesType extends TranslatorAwareType
                 'disabled' => !$this->isContextDependantOptionEnabled(),
                 'label' => $this->trans('Enable Multistore', 'Admin.Shopparameters.Feature'),
                 'help' => $this->trans(
-                    'The multistore feature allows you to manage several e-shops with one Back Office. If this feature is enabled, a "Multistore" page will be available in the "Advanced Parameters" menu.',
+                    'The multistore feature allows you to manage several front offices from a single back office. If this feature is enabled, a Multistore page is available in the Advanced Parameters menu.',
                     'Admin.Shopparameters.Help'
                 ),
             ])
@@ -231,17 +242,8 @@ class PreferencesType extends TranslatorAwareType
                 ],
                 'label' => $this->trans('Main Shop Activity', 'Admin.Shopparameters.Feature'),
                 'choice_translation_domain' => 'Install',
+                'autocomplete' => true,
             ]);
-    }
-
-    /**
-     * Enabled only if the form is accessed using HTTPS protocol.
-     *
-     * @var bool
-     */
-    public function setIsSecure($isSecure)
-    {
-        $this->isSecure = $isSecure;
     }
 
     /**
@@ -269,7 +271,7 @@ class PreferencesType extends TranslatorAwareType
      */
     protected function isContextDependantOptionEnabled()
     {
-        if (!$this->isMultistoreUsed && $this->isSingleShopContext) {
+        if (!$this->isShopFeatureEnabled && $this->isSingleShopContext) {
             return true;
         }
 

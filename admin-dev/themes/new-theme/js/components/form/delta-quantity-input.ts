@@ -22,7 +22,9 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
-import ChangeEvent = JQuery.ChangeEvent;
+import ComponentsMap from '@components/components-map';
+
+import TriggeredEvent = JQuery.TriggeredEvent;
 
 const {$} = window;
 
@@ -32,49 +34,85 @@ export type DeltaQuantityConfig = {
   updateQuantitySelector: string;
   modifiedQuantityClass: string;
   newQuantitySelector: string;
+  quantityInputSelector: string;
+  initialQuantityPreviewSelector: string;
 }
-export type InputDeltaQuantityConfig = Partial<DeltaQuantityConfig>;
 
-class DeltaQuantityInput {
+export default class DeltaQuantityInput {
   private config: DeltaQuantityConfig;
 
-  constructor(config: InputDeltaQuantityConfig = {}) {
+  constructor(config: Partial<DeltaQuantityConfig> = {}) {
+    const componentMap = ComponentsMap.deltaQuantityInput;
     this.config = {
-      containerSelector: '.delta-quantity',
-      deltaInputSelector: '.delta-quantity-delta',
-      updateQuantitySelector: '.quantity-update',
-      modifiedQuantityClass: 'quantity-modified',
-      newQuantitySelector: '.new-quantity',
+      containerSelector: componentMap.containerSelector,
+      deltaInputSelector: componentMap.deltaInputSelector,
+      updateQuantitySelector: componentMap.updateQuantitySelector,
+      modifiedQuantityClass: componentMap.modifiedQuantityClass,
+      newQuantitySelector: componentMap.newQuantitySelector,
+      quantityInputSelector: componentMap.quantityInputSelector,
+      initialQuantityPreviewSelector: componentMap.initialQuantityPreviewSelector,
       ...config,
     };
 
     this.init();
   }
 
+  public applyNewQuantity(input: HTMLInputElement): void {
+    const $container: JQuery = $(input).closest(this.config.containerSelector);
+
+    if ($container.length === 0) {
+      console.error(`container not found by ${this.config.containerSelector}`);
+      return;
+    }
+
+    const deltaQuantity = this.getDeltaQuantity(input);
+    const initialQuantity = this.getInitialQuantity($container);
+    const newQuantity: number = initialQuantity + deltaQuantity;
+
+    $container.data('initialQuantity', newQuantity);
+    $container.find(this.config.initialQuantityPreviewSelector).text(newQuantity);
+    $container.find(this.config.newQuantitySelector).text(0);
+    $container.find(this.config.updateQuantitySelector).removeClass(this.config.modifiedQuantityClass);
+  }
+
   private init(): void {
-    $(this.config.containerSelector).on('change', this.config.deltaInputSelector, (event: ChangeEvent) => {
-      const $deltaInput: JQuery = $(event.target);
-      const $container: JQuery = $deltaInput.closest(this.config.containerSelector);
-
-      let delta: number = parseInt(<string> $deltaInput.val(), 10);
-
-      if (Number.isNaN(delta)) {
-        delta = 0;
-      }
-      let initialQuantity = parseInt(<string> $container.data('initialQuantity'), 10);
-
-      if (Number.isNaN(initialQuantity)) {
-        initialQuantity = 0;
-      }
-      const updatedQuantity: number = initialQuantity + delta;
-
-      const $newQuantity: JQuery = $container.find(this.config.newQuantitySelector);
-      $newQuantity.text(updatedQuantity);
-
-      const $updateElement = $container.find(this.config.updateQuantitySelector);
-      $updateElement.toggleClass(this.config.modifiedQuantityClass, delta !== 0);
+    const deltaInputSelector: string = `${this.config.containerSelector} ${this.config.deltaInputSelector}`;
+    $(document).on('change keyup', deltaInputSelector, (event: TriggeredEvent) => {
+      this.updateDeltaQuantity(event.target);
     });
   }
-}
 
-export default DeltaQuantityInput;
+  private updateDeltaQuantity(deltaInput: HTMLElement): void {
+    const $container: JQuery = $(deltaInput).closest(this.config.containerSelector);
+    const deltaQuantity = this.getDeltaQuantity(deltaInput);
+    const initialQuantity = this.getInitialQuantity($container);
+    const updatedQuantity: number = initialQuantity + deltaQuantity;
+
+    const $newQuantity: JQuery = $container.find(this.config.newQuantitySelector);
+    $newQuantity.text(updatedQuantity);
+    $container.find(this.config.quantityInputSelector).val(updatedQuantity);
+
+    const $updateElement = $container.find(this.config.updateQuantitySelector);
+    $updateElement.toggleClass(this.config.modifiedQuantityClass, deltaQuantity !== 0);
+  }
+
+  private getDeltaQuantity(deltaInput: HTMLElement): number {
+    let delta: number = parseInt(Number($(deltaInput).val()).toString(), 10);
+
+    if (Number.isNaN(delta)) {
+      delta = 0;
+    }
+
+    return delta;
+  }
+
+  private getInitialQuantity($container: JQuery): number {
+    let initialQuantity = parseInt(<string> $container.data('initialQuantity'), 10);
+
+    if (Number.isNaN(initialQuantity)) {
+      initialQuantity = 0;
+    }
+
+    return initialQuantity;
+  }
+}

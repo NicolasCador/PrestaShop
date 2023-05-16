@@ -41,6 +41,7 @@ use PrestaShop\PrestaShop\Adapter\Presenter\AbstractLazyArray;
 use PrestaShop\PrestaShop\Adapter\Presenter\Cart\CartPresenter;
 use PrestaShop\PrestaShop\Adapter\Presenter\Object\ObjectPresenter;
 use PrestaShop\PrestaShop\Adapter\Product\PriceFormatter;
+use PrestaShop\PrestaShop\Core\Util\ColorBrightnessCalculator;
 use PrestaShopBundle\Translation\TranslatorComponent;
 use PrestaShopException;
 use ProductDownload;
@@ -194,7 +195,7 @@ class OrderLazyArray extends AbstractLazyArray
                 $product_download = new ProductDownload($id_product_download);
                 if ($product_download->display_filename != '') {
                     $orderProduct['download_link'] =
-                        $product_download->getTextLink(false, $orderProduct['download_hash'])
+                        $product_download->getTextLink($orderProduct['download_hash'])
                         . '&id_order=' . (int) $order->id
                         . '&secure_key=' . $order->secure_key;
                 }
@@ -221,7 +222,7 @@ class OrderLazyArray extends AbstractLazyArray
 
         $orderProducts = $this->cartPresenter->addCustomizedData($orderProducts, $cart);
 
-        return $orderProducts;
+        return $this->addOrderReferenceToCustomizationFileUrls($orderProducts);
     }
 
     /**
@@ -307,8 +308,8 @@ class OrderLazyArray extends AbstractLazyArray
                 $historyId = 'current';
             }
             $orderHistory[$historyId] = $history;
-            $orderHistory[$historyId]['history_date'] = Tools::displayDate($history['date_add'], null, false);
-            $orderHistory[$historyId]['contrast'] = (Tools::getBrightness($history['color']) > 128) ? 'dark' : 'bright';
+            $orderHistory[$historyId]['history_date'] = Tools::displayDate($history['date_add'], false);
+            $orderHistory[$historyId]['contrast'] = (new ColorBrightnessCalculator())->isBright($history['color']) ? 'dark' : 'bright';
         }
 
         if (!isset($orderHistory['current'])) {
@@ -332,8 +333,7 @@ class OrderLazyArray extends AbstractLazyArray
 
         foreach ($customerMessages as $cmId => $customerMessage) {
             $messages[$cmId] = $customerMessage;
-            $messages[$cmId]['message'] = nl2br($customerMessage['message']);
-            $messages[$cmId]['message_date'] = Tools::displayDate($customerMessage['date_add'], null, true);
+            $messages[$cmId]['message_date'] = Tools::displayDate($customerMessage['date_add'], true);
             if (isset($customerMessage['elastname']) && $customerMessage['elastname']) {
                 $messages[$cmId]['name'] = $customerMessage['efirstname'] . ' ' . $customerMessage['elastname'];
             } elseif ($customerMessage['clastname']) {
@@ -464,5 +464,40 @@ class OrderLazyArray extends AbstractLazyArray
             'history_date' => '',
             'contrast' => '',
         ];
+    }
+
+    private function addOrderReferenceToCustomizationFileUrls(array $products): array
+    {
+        /**
+         * @param array|string $url
+         *
+         * @return array|string
+         */
+        $addReferenceFunction = function ($imageUrl) use (&$addReferenceFunction) {
+            if (is_array($imageUrl)) {
+                foreach ($imageUrl as $key => $url) {
+                    $imageUrl[$key] = $addReferenceFunction($url);
+                }
+            } else {
+                // deconstruct the url and rebuild it with the reference query added
+                $parsedUrl = parse_url($imageUrl);
+                parse_str($parsedUrl['query'] ?? '', $parsedQuery);
+                $newQuery = http_build_query(array_merge($parsedQuery, ['reference' => $this->order->reference]));
+                $imageUrl = http_build_url(array_merge($parsedUrl, ['query' => $newQuery]));
+            }
+
+            return $imageUrl;
+        };
+        foreach ($products as &$product) {
+            foreach ($product['customizations'] as &$customization) {
+                foreach ($customization['fields'] as &$field) {
+                    if ($field['type'] === 'image') {
+                        $field['image'] = $addReferenceFunction($field['image']);
+                    }
+                }
+            }
+        }
+
+        return $products;
     }
 }

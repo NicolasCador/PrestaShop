@@ -24,14 +24,23 @@
  *-->
 <template>
   <tr :class="{'low-stock':lowStock}">
-    <td>
-      <div class="d-flex align-items-center">
+    <td data-role="product-id">
+      <div class="d-flex align-items-left">
         <PSCheckbox
           :id="id"
           :ref="id"
           :model="product"
           @checked="productChecked"
         />
+        <p
+          class="d-flex align-items-center ml-2"
+        >
+          {{ product.product_id }}
+        </p>
+      </div>
+    </td>
+    <td data-role="product-name">
+      <div class="d-flex align-items-center">
         <PSMedia
           class="d-flex align-items-center ml-2"
           :thumbnail="thumbnail"
@@ -45,15 +54,16 @@
         </PSMedia>
       </div>
     </td>
-    <td>
+    <td data-role="product-reference">
       {{ reference }}
     </td>
-    <td>
+    <td data-role="product-supplier-name">
       {{ product.supplier_name }}
     </td>
     <td
       v-if="product.active"
       class="text-sm-center"
+      data-role="product-active"
     >
       <i class="material-icons enable">check</i>
     </td>
@@ -66,6 +76,7 @@
     <td
       class="text-sm-center"
       :class="{'stock-warning':lowStock}"
+      data-role="physical-quantity"
     >
       {{ physical }}
       <span
@@ -73,19 +84,21 @@
         class="qty-update"
         :class="{'stock-warning':lowStock}"
       >
-        <i class="material-icons">trending_flat</i>
+        <i class="material-icons rtl-flip">trending_flat</i>
         {{ physicalQtyUpdated }}
       </span>
     </td>
     <td
       class="text-sm-center"
       :class="{'stock-warning':lowStock}"
+      data-role="reserved-quantity"
     >
       {{ product.product_reserved_quantity }}
     </td>
     <td
       class="text-sm-center"
       :class="{'stock-warning':lowStock}"
+      data-role="available-quantity"
     >
       {{ product.product_available_quantity }}
       <span
@@ -93,7 +106,7 @@
         class="qty-update"
         :class="{'stock-warning':lowStock}"
       >
-        <i class="material-icons">trending_flat</i>
+        <i class="material-icons rtl-flip">trending_flat</i>
         {{ availableQtyUpdated }}
       </span>
       <span
@@ -105,7 +118,10 @@
         :title="lowStockLevel"
       >!</span>
     </td>
-    <td class="qty-spinner text-right">
+    <td
+      class="qty-spinner text-right"
+      data-role="update-quantity"
+    >
       <Spinner
         :product="product"
         @updateProductQty="updateProductQty"
@@ -115,27 +131,28 @@
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
+  import {defineComponent} from 'vue';
   import PSCheckbox from '@app/widgets/ps-checkbox.vue';
   import PSMedia from '@app/widgets/ps-media.vue';
   import {StockProduct} from '@app/pages/stock/components/overview/products-table.vue';
   import ProductDesc from '@app/pages/stock/mixins/product-desc';
-  import {EventBus} from '@app/utils/event-bus';
+  import {EventEmitter} from '@components/event-emitter';
   import Spinner from '@app/pages/stock/components/overview/spinner.vue';
+  import TranslationMixin from '@app/pages/stock/mixins/translate';
 
   export interface StockProductToUpdate {
     product: StockProduct;
     delta: number;
   }
 
-  export default Vue.extend({
+  export default defineComponent({
     props: {
       product: {
         type: Object,
         required: true,
       },
     },
-    mixins: [ProductDesc],
+    mixins: [TranslationMixin, ProductDesc],
     computed: {
       reference(): string {
         if (this.product.combination_reference !== 'N/A') {
@@ -190,6 +207,7 @@
           combination_id: productToUpdate.product.combination_id,
           delta: productToUpdate.delta,
         };
+
         this.$store.dispatch('updateProductQty', updatedProduct);
         if (productToUpdate.delta) {
           this.$store.dispatch('addProductToUpdate', updatedProduct);
@@ -199,7 +217,7 @@
       },
     },
     mounted() {
-      EventBus.$on('toggleProductsCheck', (checked: boolean) => {
+      EventEmitter.on('toggleProductsCheck', (checked: boolean) => {
         const ref = this.id;
 
         if (this.$refs[ref]) {

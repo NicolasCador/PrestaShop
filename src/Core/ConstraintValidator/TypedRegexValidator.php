@@ -26,15 +26,17 @@
 
 namespace PrestaShop\PrestaShop\Core\ConstraintValidator;
 
+use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 use PrestaShop\PrestaShop\Core\ConstraintValidator\Constraints\TypedRegex;
 use PrestaShop\PrestaShop\Core\Domain\Address\Configuration\AddressConstraint;
+use PrestaShop\PrestaShop\Core\Domain\Country\ValueObject\CountryZipCodeFormat;
 use PrestaShop\PrestaShop\Core\Domain\Currency\ValueObject\AlphaIsoCode;
 use PrestaShop\PrestaShop\Core\Domain\Language\ValueObject\IsoCode;
 use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\Ean13;
 use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\Isbn;
 use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\Reference;
 use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\Upc;
-use PrestaShop\PrestaShop\Core\String\CharacterCleaner;
+use PrestaShop\PrestaShop\Core\Domain\State\StateSettings;
 use ReflectionClass;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
@@ -52,16 +54,17 @@ class TypedRegexValidator extends ConstraintValidator
     public const NAME_CHARS = '0-9!<>,;?=+()@#"�{}_$%:';
 
     /**
-     * @var CharacterCleaner
+     * @var ConfigurationInterface
      */
-    private $characterCleaner;
+    private $configuration;
 
     /**
-     * @param CharacterCleaner $characterCleaner
+     * @param ConfigurationInterface $configuration
      */
-    public function __construct(CharacterCleaner $characterCleaner)
-    {
-        $this->characterCleaner = $characterCleaner;
+    public function __construct(
+        ConfigurationInterface $configuration
+    ) {
+        $this->configuration = $configuration;
     }
 
     /**
@@ -81,15 +84,22 @@ class TypedRegexValidator extends ConstraintValidator
             throw new UnexpectedTypeException($value, 'string');
         }
 
-        $pattern = $this->getPattern($constraint->type);
         $value = $this->sanitize($value, $constraint->type);
 
+        if (in_array($constraint->type, [TypedRegex::CLEAN_HTML_ALLOW_IFRAME, TypedRegex::CLEAN_HTML_NO_IFRAME], true)) {
+            $isValid = $this->validateCleanHTML($value, TypedRegex::CLEAN_HTML_ALLOW_IFRAME === $constraint->type);
+
+            if (!$isValid) {
+                $this->buildViolation($constraint, $value);
+            }
+
+            return;
+        }
+
+        $pattern = $this->getPattern($constraint->type);
+
         if (!$this->match($pattern, $constraint->type, $value)) {
-            $this->context->buildViolation($constraint->message)
-                ->setTranslationDomain('Admin.Notifications.Error')
-                ->setParameter('%s', $this->formatValue($value))
-                ->addViolation()
-            ;
+            $this->buildViolation($constraint, $value);
         }
     }
 
@@ -104,15 +114,15 @@ class TypedRegexValidator extends ConstraintValidator
     {
         switch ($type) {
             case TypedRegex::TYPE_NAME:
-                return $this->characterCleaner->cleanNonUnicodeSupport('/^[^0-9!<>,;?=+()@#"°{}_$%:¤|]*$/u');
+                return '/^[^0-9!<>,;?=+()@#"°{}_$%:¤|]*$/u';
             case TypedRegex::TYPE_CATALOG_NAME:
-                return $this->characterCleaner->cleanNonUnicodeSupport('/^[^<>;=#{}]*$/u');
+                return '/^[^<>;=#{}]*$/u';
             case TypedRegex::TYPE_GENERIC_NAME:
-                return $this->characterCleaner->cleanNonUnicodeSupport('/^[^<>={}]*$/u');
+                return '/^[^<>={}]*$/u';
             case TypedRegex::TYPE_CITY_NAME:
-                return $this->characterCleaner->cleanNonUnicodeSupport('/^[^!<>;?=+@#"°{}_$%]*$/u');
+                return '/^[^!<>;?=+@#"°{}_$%]*$/u';
             case TypedRegex::TYPE_ADDRESS:
-                return $this->characterCleaner->cleanNonUnicodeSupport('/^[^!<>?=+@{}_$%]*$/u');
+                return '/^[^!<>?=+@{}_$%]*$/u';
             case TypedRegex::TYPE_POST_CODE:
                 return '/^[a-zA-Z 0-9-]+$/';
             case TypedRegex::TYPE_PHONE_NUMBER:
@@ -129,6 +139,8 @@ class TypedRegexValidator extends ConstraintValidator
                 return '/^[a-zA-Z0-9_.-]+$/';
             case TypedRegex::TYPE_DNI_LITE:
                 return AddressConstraint::DNI_LITE_PATTERN;
+            case TypedRegex::TYPE_STATE_ISO_CODE:
+                return StateSettings::STATE_ISO_CODE_PATTERN;
             case TypedRegex::TYPE_UPC:
                 return Upc::VALID_PATTERN;
             case TypedRegex::TYPE_EAN_13:
@@ -140,7 +152,17 @@ class TypedRegexValidator extends ConstraintValidator
             case TypedRegex::TYPE_MODULE_NAME:
                 return '/^[a-zA-Z0-9_-]+$/';
             case TypedRegex::TYPE_URL:
-                return $this->characterCleaner->cleanNonUnicodeSupport('/^[~:#,$%&_=\(\)\.\? \+\-@\/a-zA-Z0-9\pL\pS-]+$/u');
+                return '/^[~:#,$%&_=\(\)\.\? \+\-@\/a-zA-Z0-9\pL\pS-]+$/u';
+            case TypedRegex::TYPE_WEBSERVICE_KEY:
+                return '/^[a-zA-Z0-9@\#\?\-\_]+$/i';
+            case TypedRegex::TYPE_ZIP_CODE_FORMAT:
+                return CountryZipCodeFormat::ZIP_CODE_PATTERN;
+            case TypedRegex::TYPE_LINK_REWRITE:
+                if ($this->configuration->get('PS_ALLOW_ACCENTED_CHARS_URL')) {
+                    return '/^[_a-zA-Z0-9\x{0600}-\x{06FF}\pL\pS-]+$/u';
+                }
+
+                return '/^[_a-zA-Z0-9\-]+$/';
             default:
                 $definedTypes = implode(', ', array_values((new ReflectionClass(TypedRegex::class))->getConstants()));
                 throw new InvalidArgumentException(sprintf('Type "%s" is not defined. Defined types are: %s', $type, $definedTypes));
@@ -186,5 +208,43 @@ class TypedRegexValidator extends ConstraintValidator
         }
 
         return $match;
+    }
+
+    private function buildViolation(TypedRegex $constraint, string $value): void
+    {
+        $this->context->buildViolation($constraint->message)
+            ->setTranslationDomain('Admin.Notifications.Error')
+            ->setParameter('%s', $this->formatValue($value))
+            ->addViolation()
+        ;
+    }
+
+    /**
+     * Custom method for HTML validation as it is a bit more complicated
+     *
+     * @param string $value
+     * @param bool $allowIframe
+     *
+     * @return bool
+     */
+    private function validateCleanHTML(string $value, bool $allowIframe): bool
+    {
+        $events = 'onmousedown|onmousemove|onmmouseup|onmouseover|onmouseout|onload|onunload|onfocus|onblur|onchange';
+        $events .= '|onsubmit|ondblclick|onclick|onkeydown|onkeyup|onkeypress|onmouseenter|onmouseleave|onerror|onselect|onreset|onabort|ondragdrop|onresize|onactivate|onafterprint|onmoveend';
+        $events .= '|onafterupdate|onbeforeactivate|onbeforecopy|onbeforecut|onbeforedeactivate|onbeforeeditfocus|onbeforepaste|onbeforeprint|onbeforeunload|onbeforeupdate|onmove';
+        $events .= '|onbounce|oncellchange|oncontextmenu|oncontrolselect|oncopy|oncut|ondataavailable|ondatasetchanged|ondatasetcomplete|ondeactivate|ondrag|ondragend|ondragenter|onmousewheel';
+        $events .= '|ondragleave|ondragover|ondragstart|ondrop|onerrorupdate|onfilterchange|onfinish|onfocusin|onfocusout|onhashchange|onhelp|oninput|onlosecapture|onmessage|onmouseup|onmovestart';
+        $events .= '|onoffline|ononline|onpaste|onpropertychange|onreadystatechange|onresizeend|onresizestart|onrowenter|onrowexit|onrowsdelete|onrowsinserted|onscroll|onsearch|onselectionchange';
+        $events .= '|onselectstart|onstart|onstop';
+
+        if (preg_match('/<[\s]*script/ims', $value) || preg_match('/(' . $events . ')[\s]*=/ims', $value) || preg_match('/.*script\:/ims', $value)) {
+            return false;
+        }
+
+        if (!$allowIframe && preg_match('/<[\s]*(i?frame|form|input|embed|object)/ims', $value)) {
+            return false;
+        }
+
+        return true;
     }
 }

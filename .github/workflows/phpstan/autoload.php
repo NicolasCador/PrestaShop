@@ -83,7 +83,7 @@ $constantsToDefine = [
     '_PS_INSTALL_FIXTURES_PATH_' => 'string',
     '_PS_INSTALL_VERSION_' => 'string',
     '_PS_PRICE_DISPLAY_PRECISION_' => 'int',
-    '_PS_PRICE_COMPUTE_PRECISION_' => 'string',
+    '_PS_PRICE_COMPUTE_PRECISION_' => 'int',
     '_PS_OS_CHEQUE_' => 'int',
     '_PS_OS_PAYMENT_' => 'int',
     '_PS_OS_PREPARATION_' => 'int',
@@ -136,6 +136,7 @@ $constantsToDefine = [
     '_THEME_SUP_DIR_' => 'string',
     '_THEME_PROFILE_DIR_' => 'string',
     '_THEMES_DIR_' => 'string',
+    'PS_INSTALLATION_LOCK_FILE' => 'string',
 ];
 
 foreach ($constantsToDefine as $key => $value) {

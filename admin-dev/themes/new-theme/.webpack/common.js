@@ -31,6 +31,9 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const RemoveEmptyScriptsPlugin = require('webpack-remove-empty-scripts');
 const bourbon = require('bourbon');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const FontPreloadPlugin = require('webpack-font-preload-plugin');
+const CssoWebpackPlugin = require('csso-webpack-plugin').default;
 
 module.exports = {
   externals: {
@@ -41,9 +44,11 @@ module.exports = {
     attachment: './js/pages/attachment',
     attribute: './js/pages/attribute',
     attribute_group: './js/pages/attribute-group',
+    authorization_server: './js/pages/authorization-server',
     backup: './js/pages/backup',
     carrier: './js/pages/carrier',
     cart_rule: './js/pages/cart-rule',
+    cart_rule_form: './js/pages/cart-rule/form',
     catalog: './js/app/pages/catalog',
     catalog_price_rule: './js/pages/catalog-price-rule',
     catalog_price_rule_form: './js/pages/catalog-price-rule/form',
@@ -52,19 +57,26 @@ module.exports = {
     cldr: './js/app/cldr',
     cms_page: './js/pages/cms-page',
     cms_page_form: './js/pages/cms-page/form',
-    combination_edit: './js/pages/product/combination/edit',
+    combination_bulk: './js/pages/product/combination/bulk',
+    combination_form: './js/pages/product/combination/form',
     contacts: './js/pages/contacts',
     credit_slip: './js/pages/credit-slip',
     currency: './js/pages/currency',
     currency_form: './js/pages/currency/form',
-    customer: './js/pages/customer',
+    customer: './js/pages/customer/index',
+    customer_form: './js/pages/customer/form',
     customer_address_form: './js/pages/address/form',
     customer_outstanding: './js/pages/outstanding',
+    customer_preferences: './js/pages/customer-preferences',
+    customer_thread: './js/pages/customer-thread/index',
     customer_thread_view: './js/pages/customer-thread/view',
+    customer_threads: './scss/pages/customer_thread/customer_thread.scss',
+    customer_groups: './js/pages/customer-groups',
     email: './js/pages/email',
     employee: './js/pages/employee/index',
     employee_form: './js/pages/employee/form',
     error: './js/pages/error',
+    feature: './js/pages/feature',
     feature_flag: './js/pages/feature-flag/index',
     feature_form: './js/pages/feature/form',
     form_popover_error: './js/components/form/form-popover-error',
@@ -99,30 +111,51 @@ module.exports = {
     order_view: './js/pages/order/view',
     orders: './scss/pages/orders/orders.scss',
     payment_preferences: './js/pages/payment-preferences',
+    performance_preferences: './js/pages/performance-preferences',
+    permission: './js/pages/permission',
+    permissions: './scss/pages/permissions/permissions.scss',
     product: './scss/pages/product/product_page.scss',
     product_catalog: './scss/pages/product/products_catalog.scss',
-    product_edit: './js/pages/product/edit',
     product_create: './js/pages/product/create',
-    product_index: './js/pages/product/index',
+    product_edit: './js/pages/product/edit',
+    product_index: './js/pages/product/grid/index',
     product_page: './js/product-page/index',
     product_preferences: './js/pages/product-preferences',
+    product_shops: './js/pages/product/shop',
+    pre_select_product_shop: './js/pages/product/shop/pre-select-product-shop',
     profiles: './js/pages/profiles',
     search_engine: './js/pages/search-engine',
+    search: './js/pages/search',
+    security: './js/pages/security',
+    shipping_preferences: './js/pages/shipping-preferences',
+    specific_price_form: './js/pages/product/specific-price/form',
     sql_manager: './js/pages/sql-manager',
+    state: './js/pages/state',
     stock: './js/app/pages/stock',
     stock_page: './scss/pages/stock/stock_page.scss',
+    store: './js/pages/store',
     supplier: './js/pages/supplier',
     supplier_form: './js/pages/supplier/supplier-form',
     tax: './js/pages/tax',
+    tax_rules: './js/pages/tax-rules',
     tax_rules_group: './js/pages/tax-rules-group',
+    light_theme: './scss/light_theme.scss',
     theme: './scss/theme.scss',
+    rtl: './scss/rtl.scss',
     themes: './js/pages/themes',
+    title: './js/pages/title',
+    title_form: './js/pages/title/form',
     translation_settings: './js/pages/translation-settings',
     translations: './js/app/pages/translations',
     webservice: './js/pages/webservice',
     zone: './js/pages/zone',
+    country: './js/pages/country',
+    country_form: './js/pages/country/form',
+    create_product: './js/pages/product/create/create-product',
+    create_product_default_theme: './scss/pages/product/create_product_default_theme.scss',
   },
   output: {
+    publicPath: '',
     path: path.resolve(__dirname, '../public'),
     filename: '[name].bundle.js',
     libraryTarget: 'window',
@@ -134,14 +167,14 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.js', '.vue', '.json'],
     alias: {
-      vue$: 'vue/dist/vue.common.js',
+      vue: 'vue/dist/vue.esm-bundler.js',
       '@app': path.resolve(__dirname, '../js/app'),
       '@js': path.resolve(__dirname, '../js'),
       '@pages': path.resolve(__dirname, '../js/pages'),
       '@components': path.resolve(__dirname, '../js/components'),
       '@scss': path.resolve(__dirname, '../scss'),
       '@node_modules': path.resolve(__dirname, '../node_modules'),
-      '@vue': path.resolve(__dirname, '../js/vue'),
+      '@PSVue': path.resolve(__dirname, '../js/vue'),
       '@PSTypes': path.resolve(__dirname, '../js/types'),
       '@images': path.resolve(__dirname, '../img'),
     },
@@ -208,13 +241,13 @@ module.exports = {
         ],
       },
       {
-        test: /dropzone\/dist\/dropzone\.js/,
+        test: require.resolve('dropzone'),
         loader: 'imports-loader',
         options: {
           wrapper: {
             thisArg: 'window',
             args: {
-              module: null,
+              module: false,
             },
           },
         },
@@ -340,9 +373,17 @@ module.exports = {
       // FILES
       {
         test: /.(jpg|png|woff2?|eot|otf|ttf|svg|gif)$/,
-        loader: 'file-loader',
-        options: {
-          name: '[hash].[ext]',
+        type: 'asset/resource',
+        generator: {
+          filename: '[hash].[ext]',
+        },
+        exclude: /MaterialIcons-Regular\.(woff2?|ttf)$/,
+      },
+      {
+        test: /MaterialIcons-Regular\.(woff2?|ttf)$/,
+        type: 'asset/resource',
+        generator: {
+          filename: '[hash].preload.[ext]',
         },
       },
     ],
@@ -365,13 +406,35 @@ module.exports = {
     new ForkTsCheckerWebpackPlugin({
       typescript: {
         extensions: {
-          vue: true,
+          vue: {
+            enabled: true,
+            compiler: '@vue/compiler-sfc',
+          },
         },
         diagnosticOptions: {
           semantic: true,
           syntactic: true,
         },
       },
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'preload.tpl',
+      templateContent: '{{{preloadLinks}}}',
+      inject: false,
+    }),
+    new webpack.DefinePlugin({
+      __VUE_OPTIONS_API__: true,
+      __VUE_PROD_DEVTOOLS__: false,
+    }),
+    new FontPreloadPlugin({
+      index: 'preload.tpl',
+      extensions: ['woff2'],
+      filter: /preload/,
+      // eslint-disable-next-line
+      replaceCallback: ({indexSource, linksAsString}) => indexSource.replace('{{{preloadLinks}}}', linksAsString.replace(/href="/g, 'href="{$admin_dir}')),
+    }),
+    new CssoWebpackPlugin({
+      forceMediaMerge: true,
     }),
   ],
 };

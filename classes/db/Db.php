@@ -29,16 +29,16 @@
 abstract class DbCore
 {
     /** @var int Constant used by insert() method */
-    const INSERT = 1;
+    public const INSERT = 1;
 
     /** @var int Constant used by insert() method */
-    const INSERT_IGNORE = 2;
+    public const INSERT_IGNORE = 2;
 
     /** @var int Constant used by insert() method */
-    const REPLACE = 3;
+    public const REPLACE = 3;
 
     /** @var int Constant used by insert() method */
-    const ON_DUPLICATE_KEY = 4;
+    public const ON_DUPLICATE_KEY = 4;
 
     /** @var string Server (eg. localhost) */
     protected $server;
@@ -292,6 +292,7 @@ abstract class DbCore
     public static function getClass()
     {
         $class = '';
+        /* @phpstan-ignore-next-line */
         if (PHP_VERSION_ID >= 50200 && extension_loaded('pdo_mysql')) {
             $class = 'DbPDO';
         } elseif (extension_loaded('mysqli')) {
@@ -380,7 +381,6 @@ abstract class DbCore
             $this->result = $this->_query($sql);
         }
 
-        /* @phpstan-ignore-next-line */
         if (_PS_DEBUG_SQL_) {
             $this->displayError($sql);
         }
@@ -421,7 +421,7 @@ abstract class DbCore
         } elseif ($type == Db::ON_DUPLICATE_KEY) {
             $insert_keyword = 'INSERT';
         } else {
-            throw new PrestaShopDatabaseException('Bad keyword, must be Db::INSERT or Db::INSERT_IGNORE or Db::REPLACE');
+            throw new PrestaShopDatabaseException('Bad keyword, must be Db::INSERT or Db::INSERT_IGNORE or Db::REPLACE or Db::ON_DUPLICATE_KEY');
         }
 
         // Check if $data is a list of row
@@ -434,6 +434,7 @@ abstract class DbCore
         $values_stringified = [];
         $first_loop = true;
         $duplicate_key_stringified = '';
+
         foreach ($data as $row_data) {
             $values = [];
             foreach ($row_data as $key => $value) {
@@ -603,12 +604,7 @@ abstract class DbCore
 
         // This method must be used only with queries which display results
         if (!preg_match('#^\s*\(?\s*(select|show|explain|describe|desc|checksum)\s#i', $sql)) {
-            /* @phpstan-ignore-next-line */
-            if (defined('_PS_MODE_DEV_') && _PS_MODE_DEV_) {
-                throw new PrestaShopDatabaseException('Db->executeS() must be used only with select, show, explain or describe queries');
-            }
-
-            return $this->execute($sql, $use_cache);
+            throw new PrestaShopDatabaseException('Db->executeS() must be used only with select, show, explain or describe queries');
         }
 
         $this->result = $this->query($sql);
@@ -687,7 +683,7 @@ abstract class DbCore
      * @param string|DbQuery $sql
      * @param bool $use_cache
      *
-     * @return string|false Returns false if no results
+     * @return string|false|null Returns false if no results
      */
     public function getValue($sql, $use_cache = true)
     {
@@ -746,7 +742,6 @@ abstract class DbCore
             Cache::getInstance()->deleteQuery($sql);
         }
 
-        /* @phpstan-ignore-next-line */
         if (_PS_DEBUG_SQL_) {
             $this->displayError($sql);
         }
@@ -769,7 +764,7 @@ abstract class DbCore
         if ($webservice_call && $errno) {
             $dbg = debug_backtrace();
             WebserviceRequest::getInstance()->setError(500, '[SQL Error] ' . $this->getMsgError() . '. From ' . (isset($dbg[3]['class']) ? $dbg[3]['class'] : '') . '->' . $dbg[3]['function'] . '() Query was : ' . $sql, 97);
-        } elseif (_PS_DEBUG_SQL_ && $errno && !defined('PS_INSTALLATION_IN_PROGRESS')) { /* @phpstan-ignore-line */
+        } elseif (_PS_DEBUG_SQL_ && $errno && !defined('PS_INSTALLATION_IN_PROGRESS')) {
             if ($sql) {
                 throw new PrestaShopDatabaseException($this->getMsgError() . '<br /><br /><pre>' . $sql . '</pre>');
             }

@@ -39,7 +39,7 @@ use Order;
 use OrderCarrier;
 use OrderCartRule;
 use OrderDetail;
-use PrestaShop\Decimal\Number;
+use PrestaShop\Decimal\DecimalNumber;
 use PrestaShop\PrestaShop\Adapter\Cart\Comparator\CartProductsComparator;
 use PrestaShop\PrestaShop\Adapter\Cart\Comparator\CartProductUpdate;
 use PrestaShop\PrestaShop\Adapter\ContextStateManager;
@@ -195,8 +195,8 @@ class OrderAmountUpdater
                 $this->orderDetailUpdater->updateOrderDetail(
                     $orderDetail,
                     $order,
-                    new Number((string) $cartProduct['price_with_reduction_without_tax']),
-                    new Number((string) $cartProduct['price_with_reduction'])
+                    new DecimalNumber((string) $cartProduct['price_with_reduction_without_tax']),
+                    new DecimalNumber((string) $cartProduct['price_with_reduction'])
                 );
             }
         }
@@ -348,9 +348,9 @@ class OrderAmountUpdater
             }
         }
 
-        if (!$cart->isVirtualCart() && isset($order->id_carrier)) {
+        if (!$cart->isVirtualCart() && !empty($order->id_carrier)) {
             $carrier = new Carrier((int) $order->id_carrier, (int) $cart->id_lang);
-            if (null !== $carrier && Validate::isLoadedObject($carrier)) {
+            if (Validate::isLoadedObject($carrier)) {
                 $taxAddressId = (int) $order->{$this->getOrderConfiguration('PS_TAX_ADDRESS_TYPE', $order)};
                 $order->carrier_tax_rate = $carrier->getTaxesRate(new Address($taxAddressId));
             }
@@ -376,8 +376,8 @@ class OrderAmountUpdater
             $this->orderDetailUpdater->updateOrderDetail(
                 $orderDetail,
                 $order,
-                new Number((string) $cartProduct['price_with_reduction_without_tax']),
-                new Number((string) $cartProduct['price_with_reduction'])
+                new DecimalNumber((string) $cartProduct['price_with_reduction_without_tax']),
+                new DecimalNumber((string) $cartProduct['price_with_reduction'])
             );
         }
     }

@@ -2,15 +2,45 @@ name: Cron Update JS Routing
 on:
   schedule:
     - cron: '0 23 * * *'
+  workflow_dispatch:
+
+permissions: { }
 jobs:
   js-routing-dump:
+    permissions:
+      contents: write   #   to create branch (peter-evans/create-pull-request)
+      pull-requests: write   #   to create a PR (peter-evans/create-pull-request)
+
     runs-on: ubuntu-latest
     name: Update JS Routing
+    strategy:
+      fail-fast: false
+      matrix:
+        BRANCH:
+          - develop
+          - 8.1.x
+          - 8.0.x
+        include:
+          - BRANCH: develop
+            node: 16
+          - BRANCH: 8.1.x
+            node: 16
+          - BRANCH: 8.0.x
+            node: 16
+
+    env:
+      PHP_VERSION: '7.4'
+      NODE_VERSION: ${{ matrix.node }}
+      GH_BRANCH: ${{ matrix.BRANCH }}
+
     steps:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
+          php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, intl, gd, xml, dom, json, fileinfo, curl, zip, iconv, simplexml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup MySQL
         uses: mirromutth/mysql-action@v1.1
@@ -20,23 +50,25 @@ jobs:
           mysql root password: 'password'
 
       - name: Setup Node
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
-          node-version: '14'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ env.GH_BRANCH }}
 
       - name: PrestaShop Configuration
         run: cp .github/workflows/phpunit/parameters.yml app/config/parameters.yml
 
       - name: Get Composer Cache Directory
         id: composer-cache
-        run: |
-          echo "::set-output name=dir::$(composer config cache-files-dir)"
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Node Directory
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -44,15 +76,12 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Cache Composer Directory
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
-
-      - name: Update npm
-        run: npm install npm -g
 
       - name: Install Composer dependencies
         run: composer install --prefer-dist
@@ -82,7 +111,7 @@ jobs:
           body: |
                   | Questions         | Answers
                   | ----------------- | -------------------------------------------------------
-                  | Branch?           | develop
+                  | Branch?           | ${{ env.GH_BRANCH }}
                   | Description?      | Updated JS Routing file
                   | Type?             | improvement
                   | Category?         | CO
@@ -91,5 +120,5 @@ jobs:
                   | Fixed ticket?     | N/A
                   | How to test?      | N/A
                   | Possible impacts? | N/A
-          base: 'develop'
+          base: ${{ env.GH_BRANCH }}
           delete-branch: true

@@ -28,27 +28,21 @@ declare(strict_types=1);
 
 namespace PrestaShopBundle\Form\Admin\Sell\Product\Combination;
 
-use PrestaShop\PrestaShop\Core\Form\ConfigurableFormChoiceProviderInterface;
-use PrestaShopBundle\Form\Admin\Sell\Product\Options\SuppliersType;
-use PrestaShopBundle\Form\Admin\Sell\Product\Specification\ReferencesType;
+use PrestaShopBundle\Form\Admin\Sell\Product\Details\ReferencesType;
+use PrestaShopBundle\Form\Admin\Sell\Product\Options\ProductSupplierCollectionType;
+use PrestaShopBundle\Form\Admin\Type\ImagePreviewType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Form to edit Combination details.
  */
 class CombinationFormType extends TranslatorAwareType
 {
-    /**
-     * @var ConfigurableFormChoiceProviderInterface
-     */
-    private $imagesChoiceProvider;
-
     /**
      * @var EventSubscriberInterface
      */
@@ -57,17 +51,14 @@ class CombinationFormType extends TranslatorAwareType
     /**
      * @param TranslatorInterface $translator
      * @param array $locales
-     * @param ConfigurableFormChoiceProviderInterface $imagesChoiceProvider
      * @param EventSubscriberInterface $combinationListener
      */
     public function __construct(
         TranslatorInterface $translator,
         array $locales,
-        ConfigurableFormChoiceProviderInterface $imagesChoiceProvider,
         EventSubscriberInterface $combinationListener
     ) {
         parent::__construct($translator, $locales);
-        $this->imagesChoiceProvider = $imagesChoiceProvider;
         $this->combinationListener = $combinationListener;
     }
 
@@ -78,22 +69,27 @@ class CombinationFormType extends TranslatorAwareType
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         $builder
-            ->add('name', HiddenType::class)
-            ->add('stock', CombinationStockType::class)
+            ->add('cover_thumbnail_url', ImagePreviewType::class, [
+                'label' => false,
+                'row_attr' => [
+                    'class' => 'combination-cover-row',
+                ],
+            ])
+            ->add('header', CombinationHeaderType::class)
+            ->add('stock', CombinationStockType::class, [
+                'product_id' => $options['product_id'],
+            ])
             ->add('price_impact', CombinationPriceImpactType::class)
-            ->add('references', ReferencesType::class)
-            ->add('suppliers', SuppliersType::class, [
+            ->add('references', ReferencesType::class, [
+                'columns_number' => 3,
+            ])
+            ->add('default_supplier_id', HiddenType::class)
+            ->add('product_suppliers', ProductSupplierCollectionType::class, [
                 'alert_message' => $this->trans('This interface allows you to specify the suppliers of the current combination.', 'Admin.Catalog.Help'),
             ])
-            ->add('images', ChoiceType::class, [
-                'label' => $this->trans('Images', 'Admin.Global'),
-                'label_tag_name' => 'h2',
-                'choices' => $this->imagesChoiceProvider->getChoices(['product_id' => $options['product_id']]),
-                'choice_attr' => function ($choice, $key) {
-                    return ['data-image-url' => $key];
-                },
-                'multiple' => true,
-                'expanded' => true,
+            ->add('images', CombinationImagesChoiceType::class, [
+                'product_id' => $options['product_id'],
+                'label_tag_name' => 'h3',
             ])
         ;
 
@@ -110,11 +106,15 @@ class CombinationFormType extends TranslatorAwareType
     public function configureOptions(OptionsResolver $resolver)
     {
         $resolver
-            ->setRequired(['product_id'])
-            ->setAllowedTypes('product_id', ['int'])
+            ->setRequired([
+                'product_id',
+            ])
+            ->setAllowedTypes('product_id', 'int')
             ->setDefaults([
                 'required' => false,
                 'label' => false,
+                'form_theme' => '@PrestaShop/Admin/Sell/Catalog/Product/FormTheme/combination.html.twig',
+                'use_default_themes' => false,
             ])
         ;
     }

@@ -6,6 +6,7 @@ services:
     class: 'PrestaShop\PrestaShop\Adapter\Product\GeneralConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@PrestaShop\PrestaShop\Adapter\Product\SpecificPrice\Update\SpecificPricePriorityUpdater'
 
   prestashop.adapter.product_pagination.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Product\PaginationConfiguration'
@@ -26,16 +27,22 @@ services:
     class: 'PrestaShop\PrestaShop\Adapter\Customer\CustomerConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
 
   prestashop.adapter.order_general.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Order\GeneralConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
 
   prestashop.adapter.order_gift.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Order\GiftOptionsConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
 
   prestashop.adapter.debug_mode.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Debug\DebugModeConfiguration'
@@ -44,11 +51,11 @@ services:
       - '@prestashop.adapter.legacy.configuration'
       - '%ps_config_dir%/defines.inc.php'
       - '@prestashop.adapter.cache.clearer.class_index_cache_clearer'
+      - '@prestashop.adapter.debug_profiling'
 
   prestashop.adapter.optional_features.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\OptionalFeatures\OptionalFeaturesConfiguration'
     arguments:
-      - '@prestashop.adapter.legacy.configuration'
       - '@prestashop.adapter.combination_feature'
       - '@prestashop.adapter.feature.feature'
       - '@prestashop.adapter.group.feature'
@@ -58,7 +65,7 @@ services:
     arguments:
       - '@prestashop.adapter.legacy.configuration'
       - '@filesystem'
-      - '@prestashop.adapter.tools'
+      - '@PrestaShop\PrestaShop\Adapter\Tools'
       - '%themes_dir%'
       - '@=service("prestashop.adapter.legacy.context").getContext().shop.theme_name'
 
@@ -80,7 +87,6 @@ services:
     arguments:
       - '@prestashop.adapter.legacy.configuration'
       - '@=service("prestashop.adapter.legacy.context").getContext().cookie'
-      - '@=service("prestashop.adapter.environment").isDebug()'
 
   prestashop.adapter.maintenance.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Shop\MaintenanceConfiguration'
@@ -91,7 +97,7 @@ services:
 
   prestashop.adapter.preferences.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Preferences\PreferencesConfiguration'
-    arguments: [ '@prestashop.adapter.legacy.configuration' ]
+    autowire: true
 
   prestashop.adapter.upload_quota.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Upload\UploadQuotaConfiguration'
@@ -119,13 +125,14 @@ services:
 
   prestashop.adapter.order.delivery.slip.pdf.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Order\Delivery\SlipPdfConfiguration'
-    arguments:
-      - '@prestashop.adapter.legacy.configuration'
 
   prestashop.adapter.order.invoice_options.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Invoice\InvoiceOptionsConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
+      - '@prestashop.core.form.choice_provider.invoice_model_by_name'
 
   prestashop.adapter.data_provider.language:
     class: 'PrestaShop\PrestaShop\Adapter\Language\LanguageDataProvider'
@@ -146,7 +153,6 @@ services:
     class: 'PrestaShop\PrestaShop\Adapter\Language\LanguageCopier'
     arguments:
       - '@prestashop.adapter.data_provider.language'
-      - '@translator'
       - '@filesystem'
       - '@=service("prestashop.core.addon.theme.repository").getListAsCollection()'
 
@@ -159,7 +165,6 @@ services:
       - '@prestashop.adapter.legacy.configuration'
       - '@prestashop.adapter.language.activator'
       - '@prestashop.adapter.manager.currency'
-      - '@prestashop.adapter.admin.data_provider.module'
 
   prestashop.adapter.local_units.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Localization\LocalUnitsConfiguration'
@@ -193,19 +198,19 @@ services:
     class: 'PrestaShop\PrestaShop\Adapter\Carrier\HandlingConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
+
 
   prestashop.adapter.shipping_preferences.carrier_options_configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Carrier\CarrierOptionsConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
 
   prestashop.core.email.email_configurator:
     class: 'PrestaShop\PrestaShop\Core\Email\EmailDataConfigurator'
-    arguments:
-      - '@prestashop.adapter.legacy.configuration'
-
-  prestashop.core.email.smtp_configurator:
-    class: 'PrestaShop\PrestaShop\Core\Email\SmtpDataConfigurator'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
 
@@ -213,11 +218,15 @@ services:
     class: 'PrestaShop\PrestaShop\Adapter\Webservice\WebserviceConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
 
   prestashop.adapter.meta.set_up_urls.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Meta\SetUpUrlsDataConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
       - '@prestashop.adapter.file.htaccess_file_generator'
       - '@translator'
 
@@ -232,12 +241,16 @@ services:
     class: 'PrestaShop\PrestaShop\Adapter\Meta\UrlSchemaDataConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
       - '@=service("prestashop.adapter.data_provider.default_route").getRules()'
 
   prestashop.adapter.meta.seo_options.configuration:
     class: 'PrestaShop\PrestaShop\Adapter\Meta\SEOOptionsDataConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
 
   prestashop.core.team.employee.configuration.employee_options_configuration:
     class: 'PrestaShop\PrestaShop\Core\Team\Employee\Configuration\EmployeeOptionsConfiguration'
@@ -249,6 +262,8 @@ services:
     class: 'PrestaShop\PrestaShop\Core\Tax\TaxOptionsConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
       - '@prestashop.adapter.tax.ecotax.ecotax_resetter'
 
   prestashop.core.mail_theme.configuration:
@@ -261,14 +276,20 @@ services:
     class: 'PrestaShop\PrestaShop\Core\MerchandiseReturn\Configuration\MerchandiseReturnOptionsConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
+      - '@prestashop.adapter.shop.context'
+      - '@prestashop.adapter.multistore_feature'
 
   prestashop.core.credit_slip.credit_slip_options.configuration:
     class: 'PrestaShop\PrestaShop\Core\CreditSlip\CreditSlipOptionsConfiguration'
     arguments:
       - '@prestashop.adapter.legacy.configuration'
 
-  prestashop.core.feature_flags.modifier:
-    class: 'PrestaShop\PrestaShop\Core\FeatureFlag\FeatureFlagsModifier'
+  prestashop.adapter.security.general.configuration:
+    class: 'PrestaShop\PrestaShop\Core\Security\GeneralConfiguration'
     arguments:
-      - '@doctrine.orm.entity_manager'
-      - '@translator'
+      - '@prestashop.adapter.legacy.configuration'
+
+  prestashop.adapter.security.password_policy.configuration:
+    class: 'PrestaShop\PrestaShop\Core\Security\PasswordPolicyConfiguration'
+    arguments:
+      - '@prestashop.adapter.legacy.configuration'

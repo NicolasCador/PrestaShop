@@ -41,9 +41,24 @@ class UpdatesController extends ModuleAbstractController
      */
     public function indexAction()
     {
+        $moduleList = $this->getModuleRepository()->getUpgradableModules();
+        $pageData = $this->getNotificationPageData($moduleList);
+
+        // In update view, the only available action for module is update.
+        // Can't use AdminModuleDataProvider::setActionUrls $specific_action attribute while abstract definition isn't clear.
+        foreach ($pageData['modules'] as $key => $module) {
+            if (isset($module['attributes']['urls']['upgrade'])) {
+                $pageData['modules'][$key]['attributes']['urls'] = ['upgrade' => $module['attributes']['urls']['upgrade']];
+                $pageData['modules'][$key]['attributes']['url_active'] = 'upgrade';
+            }
+        }
+
         return $this->render(
             '@PrestaShop/Admin/Module/updates.html.twig',
-            $this->getNotificationPageData('to_update')
+            array_merge(
+                $pageData,
+                ['layoutTitle' => $this->trans('Module updates', 'Admin.Navigation.Menu')]
+            )
         );
     }
 }

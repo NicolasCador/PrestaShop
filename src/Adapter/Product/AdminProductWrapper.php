@@ -41,7 +41,7 @@ use ObjectModel;
 use PrestaShop\PrestaShop\Adapter\Entity\Customization;
 use PrestaShop\PrestaShop\Core\Foundation\Database\EntityNotFoundException;
 use PrestaShop\PrestaShop\Core\Localization\Locale;
-use PrestaShopBundle\Form\Admin\Type\CustomMoneyType;
+use PrestaShopBundle\Form\FormHelper;
 use PrestaShopBundle\Utils\FloatParser;
 use Product;
 use ProductDownload;
@@ -50,12 +50,14 @@ use ShopUrl;
 use SpecificPrice;
 use SpecificPriceRule;
 use StockAvailable;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Tax;
 use Tools;
 use Validate;
 
 /**
+ * @deprecated since 8.1 and will be removed in next major.
+ *
  * Admin controller wrapper for new Architecture, about Product admin controller.
  */
 class AdminProductWrapper
@@ -143,7 +145,7 @@ class AdminProductWrapper
         // This is VERY UGLY, but since ti ComputingPrecision can never return enough decimals for now we have no
         // choice but to hard code this one to make sure enough precision is saved in the DB or it results in errors
         // of 1 cent in the shop
-        $computingPrecision = CustomMoneyType::PRESTASHOP_DECIMALS;
+        $computingPrecision = FormHelper::DEFAULT_PRICE_PRECISION;
         if (!isset($combinationValues['attribute_ecotax']) || 0.0 === (float) $combinationValues['attribute_ecotax']) {
             $combinationValues['attribute_ecotax'] = 0;
         } else {
@@ -511,7 +513,7 @@ class AdminProductWrapper
                         'id_product' => $product->id,
                         'rule_name' => $rule_name,
                         'attributes_name' => $attributes_name,
-                        'shop' => ($specific_price['id_shop'] ? $shops[$specific_price['id_shop']]['name'] : $this->translator->trans('All shops', [], 'Admin.Global')),
+                        'shop' => ($specific_price['id_shop'] ? $shops[$specific_price['id_shop']]['name'] : $this->translator->trans('All stores', [], 'Admin.Global')),
                         'currency' => ($specific_price['id_currency'] ? $currencies[$specific_price['id_currency']]['name'] : $this->translator->trans('All currencies', [], 'Admin.Global')),
                         'country' => ($specific_price['id_country'] ? $countries[$specific_price['id_country']]['name'] : $this->translator->trans('All countries', [], 'Admin.Global')),
                         'group' => ($specific_price['id_group'] ? $groups[$specific_price['id_group']]['name'] : $this->translator->trans('All groups', [], 'Admin.Global')),

@@ -73,6 +73,7 @@ class PaymentPreferencesController extends FrameworkBundleAdminController
             'paymentPreferencesForm' => $paymentPreferencesForm,
             'isSingleShopContext' => $isSingleShopContext,
             'paymentModulesCount' => $paymentModulesCount,
+            'layoutTitle' => $this->trans('Preferences', 'Admin.Navigation.Menu'),
         ]);
     }
 
@@ -101,7 +102,7 @@ class PaymentPreferencesController extends FrameworkBundleAdminController
 
             $errors = $paymentPreferencesFormHandler->save($paymentPreferences);
             if (empty($errors)) {
-                $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
 
                 return $this->redirectToRoute('admin_payment_preferences');
             }

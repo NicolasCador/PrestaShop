@@ -25,8 +25,8 @@
 
 <div class="title-content">
   <h1 class="d-inline">
-    <strong class="text-muted">#{{ orderForViewing.id }}</strong>
-    <strong>{{ orderForViewing.reference }}</strong>
+    <strong class="text-muted" data-role="order-id">#{{ orderForViewing.id }}</strong>
+    <strong data-role="order-reference">{{ orderForViewing.reference }}</strong>
   </h1>
 
   <p class="lead d-inline">
@@ -52,4 +52,10 @@
       {{ orderForViewing.createdAt|date('H:i:s') }}
     </span>
   </p>
+
+    {% if orderForViewing.shipping.giftWrapping %}
+      <p class="lead d-inline">
+        <span class="badge rounded badge-success ml-2 mr-2 font-size-100 ">{{ 'Gift wrapping'|trans({}, 'Admin.Orderscustomers.Feature') }}</span>
+      </p>
+    {% endif %}
 </div>

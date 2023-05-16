@@ -28,6 +28,7 @@ namespace PrestaShop\PrestaShop\Core\Domain\Category\Command;
 
 use PrestaShop\PrestaShop\Core\Domain\Category\Exception\CategoryConstraintException;
 use PrestaShop\PrestaShop\Core\Domain\Category\ValueObject\CategoryId;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * Class EditCategoryCommand edits given category.
@@ -60,6 +61,11 @@ class EditCategoryCommand
     private $localizedDescriptions;
 
     /**
+     * @var string[]|null
+     */
+    private $localizedAdditionalDescriptions;
+
+    /**
      * @var bool
      */
     private $isActive;
@@ -90,11 +96,27 @@ class EditCategoryCommand
     private $associatedShopIds;
 
     /**
+     * @var UploadedFile|null
+     */
+    private $coverImage;
+
+    /**
+     * @var UploadedFile|null
+     */
+    private $thumbnailImage;
+
+    /**
+     * @var array
+     */
+    private $menuThumbnailImages;
+
+    /**
      * @param int $categoryId
      */
     public function __construct($categoryId)
     {
         $this->categoryId = new CategoryId($categoryId);
+        $this->menuThumbnailImages = [];
     }
 
     /**
@@ -203,6 +225,26 @@ class EditCategoryCommand
     public function setLocalizedDescriptions(array $localizedDescriptions)
     {
         $this->localizedDescriptions = $localizedDescriptions;
+
+        return $this;
+    }
+
+    /**
+     * @return string[]|null
+     */
+    public function getLocalizedAdditionalDescriptions(): ?array
+    {
+        return $this->localizedAdditionalDescriptions;
+    }
+
+    /**
+     * @param string[] $localizedAdditionalDescriptions
+     *
+     * @return $this
+     */
+    public function setLocalizedAdditionalDescriptions(array $localizedAdditionalDescriptions): self
+    {
+        $this->localizedAdditionalDescriptions = $localizedAdditionalDescriptions;
 
         return $this;
     }
@@ -331,5 +373,53 @@ class EditCategoryCommand
         $this->associatedShopIds = $associatedShopIds;
 
         return $this;
+    }
+
+    /**
+     * @return UploadedFile|null
+     */
+    public function getCoverImage(): ?UploadedFile
+    {
+        return $this->coverImage;
+    }
+
+    /**
+     * @param UploadedFile|null $coverImage
+     */
+    public function setCoverImage(?UploadedFile $coverImage): void
+    {
+        $this->coverImage = $coverImage;
+    }
+
+    /**
+     * @return UploadedFile|null
+     */
+    public function getThumbnailImage(): ?UploadedFile
+    {
+        return $this->thumbnailImage;
+    }
+
+    /**
+     * @param UploadedFile|null $thumbnailImage
+     */
+    public function setThumbnailImage(?UploadedFile $thumbnailImage): void
+    {
+        $this->thumbnailImage = $thumbnailImage;
+    }
+
+    /**
+     * @return array
+     */
+    public function getMenuThumbnailImages(): array
+    {
+        return $this->menuThumbnailImages;
+    }
+
+    /**
+     * @param array $menuThumbnailImages
+     */
+    public function setMenuThumbnailImages(array $menuThumbnailImages): void
+    {
+        $this->menuThumbnailImages = $menuThumbnailImages;
     }
 }

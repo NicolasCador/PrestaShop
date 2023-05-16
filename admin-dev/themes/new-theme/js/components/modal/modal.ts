@@ -33,12 +33,14 @@ export interface ModalContainerType {
   message: HTMLElement;
   header: HTMLElement;
   title?: HTMLElement;
-  closeIcon: HTMLButtonElement;
+  closeIcon?: HTMLButtonElement;
 }
-export interface ModalType {
-  modal: ModalContainerType;
+export interface ModalCoreType {
   show: () => void;
   hide: () => void;
+}
+export interface ModalType extends ModalCoreType {
+  modal: ModalContainerType;
   render: (content: string) => void;
 }
 export type CssProps = Record<string, string>;
@@ -47,7 +49,7 @@ export type ModalParams = {
   closable?: boolean;
   modalTitle?: string
   dialogStyle?: CssProps;
-  closeCallback?: () => boolean;
+  closeCallback?: () => void;
 }
 export type InputModalParams = Partial<ModalParams>;
 
@@ -74,7 +76,7 @@ export class ModalContainer implements ModalContainerType {
 
   title?: HTMLElement;
 
-  closeIcon!: HTMLButtonElement;
+  closeIcon?: HTMLButtonElement;
 
   body!: HTMLElement;
 
@@ -82,14 +84,13 @@ export class ModalContainer implements ModalContainerType {
     const params: ModalParams = {
       id: 'confirm-modal',
       closable: false,
-      closeCallback: () => true,
       ...inputParams,
     };
 
     this.buildModalContainer(params);
   }
 
-  buildModalContainer(params: ModalParams): void {
+  protected buildModalContainer(params: ModalParams): void {
     // Main modal element
     this.container = document.createElement('div');
     this.container.classList.add('modal', 'fade');
@@ -202,25 +203,43 @@ export class Modal implements ModalType {
     document.body.appendChild(this.modal.container);
   }
 
-  setTitle(modalTitle: string): void {
+  setTitle(modalTitle: string): this {
     if (!this.modal.title) {
       this.modal.title = document.createElement('h4');
       this.modal.title.classList.add('modal-title');
-      this.modal.header.insertBefore(this.modal.title, this.modal.closeIcon);
+      if (this.modal.closeIcon) {
+        this.modal.header.insertBefore(this.modal.title, this.modal.closeIcon);
+      } else {
+        this.modal.header.appendChild(this.modal.title);
+      }
     }
+
     this.modal.title.innerHTML = modalTitle;
+
+    return this;
   }
 
-  render(content: string): void {
+  render(content: string): this {
     this.modal.message.innerHTML = content;
+
+    return this;
   }
 
-  show(): void {
+  show(): this {
     this.$modal.modal('show');
+
+    return this;
   }
 
-  hide(): void {
+  hide(): this {
     this.$modal.modal('hide');
+    // Sometimes modal animation is still in progress and hiding fails, so we attach event listener for that case.
+    this.$modal.on('shown.bs.modal', () => {
+      this.$modal.modal('hide');
+      this.$modal.off('shown.bs.modal');
+    });
+
+    return this;
   }
 }
 

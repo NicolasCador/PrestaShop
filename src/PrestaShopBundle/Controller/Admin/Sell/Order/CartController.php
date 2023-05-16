@@ -90,7 +90,7 @@ class CartController extends FrameworkBundleAdminController
 
         return $this->render('@PrestaShop/Admin/Sell/Order/Cart/view.html.twig', [
             'cartView' => $cartView,
-            'layoutTitle' => $this->trans('View', 'Admin.Actions'),
+            'layoutTitle' => $this->trans('Cart #%s', 'Admin.Navigation.Menu', [$cartId]),
             'enableSidebar' => true,
             'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
             'cartKpi' => $kpiRow,
@@ -267,7 +267,7 @@ class CartController extends FrameworkBundleAdminController
      */
     public function updateDeliverySettingsAction(Request $request, int $cartId)
     {
-        $configuration = $this->get('prestashop.adapter.legacy.configuration');
+        $configuration = $this->getConfiguration();
         $recycledPackagingEnabled = (bool) $configuration->get('PS_RECYCLABLE_PACK');
         $giftSettingsEnabled = (bool) $configuration->get('PS_GIFT_WRAPPING');
 

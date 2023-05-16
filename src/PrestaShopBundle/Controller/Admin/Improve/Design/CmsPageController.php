@@ -61,8 +61,11 @@ use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\CmsPageCategoryDefinition
 use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\CmsPageDefinitionFactory;
 use PrestaShop\PrestaShop\Core\Grid\Position\Exception\PositionDataException;
 use PrestaShop\PrestaShop\Core\Grid\Position\Exception\PositionUpdateException;
+use PrestaShop\PrestaShop\Core\Grid\Position\GridPositionUpdaterInterface;
+use PrestaShop\PrestaShop\Core\Grid\Position\PositionUpdateFactoryInterface;
 use PrestaShop\PrestaShop\Core\Search\Filters\CmsPageCategoryFilters;
 use PrestaShop\PrestaShop\Core\Search\Filters\CmsPageFilters;
+use PrestaShop\PrestaShop\Core\Util\HelperCard\DocumentationLinkProviderInterface;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use PrestaShopBundle\Security\Annotation\AdminSecurity;
 use PrestaShopBundle\Security\Annotation\DemoRestricted;
@@ -121,7 +124,7 @@ class CmsPageController extends FrameworkBundleAdminController
             )
         );
 
-        $helperBlockLinkProvider = $this->get('prestashop.core.util.helper_card.documentation_link_provider');
+        $helperBlockLinkProvider = $this->get(DocumentationLinkProviderInterface::class);
 
         return $this->render(
             '@PrestaShop/Admin/Improve/Design/Cms/index.html.twig',
@@ -204,7 +207,7 @@ class CmsPageController extends FrameworkBundleAdminController
             if (null !== $cmsPageId) {
                 $this->addFlash(
                     'success',
-                    $this->trans('Successful creation.', 'Admin.Notifications.Success')
+                    $this->trans('Successful creation', 'Admin.Notifications.Success')
                 );
                 if (!$request->request->has('save-and-preview')) {
                     return $this->redirectToParentIndexPageByCmsPageId($cmsPageId);
@@ -229,6 +232,7 @@ class CmsPageController extends FrameworkBundleAdminController
                 'cmsCategoryParentId' => $categoryParentId,
                 'enableSidebar' => true,
                 'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
+                'layoutTitle' => $this->trans('New page', 'Admin.Navigation.Menu'),
             ]
         );
     }
@@ -278,7 +282,7 @@ class CmsPageController extends FrameworkBundleAdminController
             if ($result->isSubmitted() && $result->isValid()) {
                 $this->addFlash(
                     'success',
-                    $this->trans('Successful update.', 'Admin.Notifications.Success')
+                    $this->trans('Successful update', 'Admin.Notifications.Success')
                 );
 
                 if ($request->request->has('save-and-preview')) {
@@ -306,6 +310,13 @@ class CmsPageController extends FrameworkBundleAdminController
                 'enableSidebar' => true,
                 'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
                 'previewUrl' => $previewUrl,
+                'layoutTitle' => $this->trans(
+                    'Editing page %name%',
+                    'Admin.Navigation.Menu',
+                    [
+                        '%name%' => $editableCmsPage->getLocalizedTitle()[$this->getContextLangId()],
+                    ]
+                ),
             ]
         );
     }
@@ -337,7 +348,7 @@ class CmsPageController extends FrameworkBundleAdminController
             if (null !== $result->getIdentifiableObjectId()) {
                 $this->addFlash(
                     'success',
-                    $this->trans('Successful creation.', 'Admin.Notifications.Success')
+                    $this->trans('Successful creation', 'Admin.Notifications.Success')
                 );
 
                 return $this->redirectToIndexPageById($result->getIdentifiableObjectId());
@@ -355,6 +366,7 @@ class CmsPageController extends FrameworkBundleAdminController
                 'cmsPageCategoryForm' => $cmsPageCategoryForm->createView(),
                 'enableSidebar' => true,
                 'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
+                'layoutTitle' => $this->trans('New category', 'Admin.Navigation.Menu'),
             ]
         );
     }
@@ -397,7 +409,7 @@ class CmsPageController extends FrameworkBundleAdminController
             if ($result->isSubmitted() && $result->isValid()) {
                 $this->addFlash(
                     'success',
-                    $this->trans('Successful update.', 'Admin.Notifications.Success')
+                    $this->trans('Successful update', 'Admin.Notifications.Success')
                 );
 
                 return $this->redirectToIndexPageById($result->getIdentifiableObjectId());
@@ -420,6 +432,13 @@ class CmsPageController extends FrameworkBundleAdminController
                 'cmsCategoryParentId' => $cmsCategoryParentId,
                 'enableSidebar' => true,
                 'help_link' => $this->generateSidebarLink($request->attributes->get('_legacy_controller')),
+                'layoutTitle' => $this->trans(
+                    'Editing category %name%',
+                    'Admin.Navigation.Menu',
+                    [
+                        '%name%' => $cmsPageCategoryForm->getData()['name'][$this->getContextLangId()],
+                    ]
+                ),
             ]
         );
     }
@@ -451,7 +470,7 @@ class CmsPageController extends FrameworkBundleAdminController
 
             $this->addFlash(
                 'success',
-                $this->trans('Successful deletion.', 'Admin.Notifications.Success')
+                $this->trans('Successful deletion', 'Admin.Notifications.Success')
             );
         } catch (Exception $exception) {
             $this->addFlash(
@@ -494,7 +513,7 @@ class CmsPageController extends FrameworkBundleAdminController
 
             $this->addFlash(
                 'success',
-                $this->trans('The selection has been successfully deleted.', 'Admin.Notifications.Success')
+                $this->trans('The selection has been successfully deleted', 'Admin.Notifications.Success')
             );
         } catch (Exception $exception) {
             $this->addFlash(
@@ -537,7 +556,7 @@ class CmsPageController extends FrameworkBundleAdminController
 
         $positionDefinition = $this->get('prestashop.core.grid.cms_page_category.position_definition');
 
-        $positionUpdateFactory = $this->get('prestashop.core.grid.position.position_update_factory');
+        $positionUpdateFactory = $this->get(PositionUpdateFactoryInterface::class);
 
         try {
             $positionUpdate = $positionUpdateFactory->buildPositionUpdate($positionsData, $positionDefinition);
@@ -548,11 +567,11 @@ class CmsPageController extends FrameworkBundleAdminController
             return $this->redirectToIndexPageById($cmsCategoryParentId);
         }
 
-        $updater = $this->get('prestashop.core.grid.position.doctrine_grid_position_updater');
+        $updater = $this->get(GridPositionUpdaterInterface::class);
 
         try {
             $updater->update($positionUpdate);
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (PositionUpdateException $e) {
             $errors = [$e->toArray()];
             $this->flashErrors($errors);
@@ -589,7 +608,7 @@ class CmsPageController extends FrameworkBundleAdminController
         ];
 
         $positionDefinition = $this->get('prestashop.core.grid.cms_page.position_definition');
-        $positionUpdateFactory = $this->get('prestashop.core.grid.position.position_update_factory');
+        $positionUpdateFactory = $this->get(PositionUpdateFactoryInterface::class);
 
         try {
             $positionUpdate = $positionUpdateFactory->buildPositionUpdate($positionsData, $positionDefinition);
@@ -600,11 +619,11 @@ class CmsPageController extends FrameworkBundleAdminController
             return $this->redirectToParentIndexPage($cmsCategoryParentId);
         }
 
-        $updater = $this->get('prestashop.core.grid.position.doctrine_grid_position_updater');
+        $updater = $this->get(GridPositionUpdaterInterface::class);
 
         try {
             $updater->update($positionUpdate);
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (PositionUpdateException $e) {
             $errors = [$e->toArray()];
             $this->flashErrors($errors);
@@ -907,7 +926,7 @@ class CmsPageController extends FrameworkBundleAdminController
 
             $this->addFlash(
                 'success',
-                $this->trans('The selection has been successfully deleted.', 'Admin.Notifications.Success')
+                $this->trans('The selection has been successfully deleted', 'Admin.Notifications.Success')
             );
         } catch (Exception $exception) {
             $this->addFlash(
@@ -946,7 +965,7 @@ class CmsPageController extends FrameworkBundleAdminController
 
             $this->addFlash(
                 'success',
-                $this->trans('Successful deletion.', 'Admin.Notifications.Success')
+                $this->trans('Successful deletion', 'Admin.Notifications.Success')
             );
         } catch (Exception $exception) {
             $this->addFlash(

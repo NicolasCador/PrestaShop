@@ -48,6 +48,8 @@ class PositionsListHandler {
 
   $moduleButtonsUpdate: JQuery;
 
+  $transplantModuleButton: JQuery;
+
   $hooksList: Array<Record<string, any>>;
 
   constructor() {
@@ -58,8 +60,12 @@ class PositionsListHandler {
     this.$panelSelectionMultipleSelection = $(
       '#modules-position-multiple-selection',
     );
+    const $alertMessage = $('#content-message-box + .alert');
 
     this.$panelSelectionOriginalY = <number> this.$panelSelection.offset()?.top;
+    if ($alertMessage.length > 0) {
+      this.$panelSelectionOriginalY += <number> $alertMessage.outerHeight();
+    }
     this.$showModules = $('#show-modules');
     this.$modulesList = $('.modules-position-checkbox');
     this.$hookPosition = $('#hook-position');
@@ -68,9 +74,14 @@ class PositionsListHandler {
     this.$moduleUnhookButton = $('#unhook-button-position-bottom');
     this.$moduleButtonsUpdate = $('.module-buttons-update .btn');
     this.$hooksList = [];
+    this.$transplantModuleButton = $('.transplant-module-button');
 
     this.handleList();
     this.handleSortable();
+
+    // Trigger some events for reloading all previous hooks
+    this.$modulesList.trigger('change');
+    this.$modulesList.trigger('scroll');
 
     $('input[name="general[enable_tos]"]').on('change', () => {
       this.handleList();
@@ -116,7 +127,7 @@ class PositionsListHandler {
       }
     });
 
-    self.$panelSelection.find('button').click(() => {
+    self.$panelSelection.find('button').on('click', () => {
       $('button[name="unhookform"]').trigger('click');
     });
 
@@ -142,6 +153,9 @@ class PositionsListHandler {
     self.$hookSearch.on('input', () => {
       self.modulesPositionFilterHooks();
     });
+
+    // Filter modules list on the page load
+    self.modulesPositionFilterHooks();
 
     self.$hookSearch.on('keypress', (e) => {
       const keyCode = e.keyCode || e.which;
@@ -256,8 +270,13 @@ class PositionsListHandler {
   modulesPositionFilterHooks(): void {
     const self = this;
     const $hookName = <string>self.$hookSearch.val();
-    const $moduleId = self.$showModules.val();
+    const $moduleId = <string>self.$showModules.val();
     const $regex = new RegExp(`(${$hookName})`, 'gi');
+
+    // Update "Transplant module" button
+    const transplantModuleHref = new URL(this.$transplantModuleButton.prop('href'));
+    transplantModuleHref.searchParams.set('show_modules', $moduleId);
+    this.$transplantModuleButton.attr('href', transplantModuleHref.toString());
 
     for (let $id = 0; $id < self.$hooksList.length; $id += 1) {
       self.$hooksList[$id].container.toggle(

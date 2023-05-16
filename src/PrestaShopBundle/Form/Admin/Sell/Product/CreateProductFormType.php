@@ -28,51 +28,25 @@ declare(strict_types=1);
 
 namespace PrestaShopBundle\Form\Admin\Sell\Product;
 
-use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\ProductType;
-use PrestaShop\PrestaShop\Core\Form\FormChoiceAttributeProviderInterface;
-use PrestaShop\PrestaShop\Core\Form\FormChoiceProviderInterface;
+use PrestaShopBundle\Form\Admin\Type\ShopSelectorType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
-use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Translation\TranslatorInterface;
 
 class CreateProductFormType extends TranslatorAwareType
 {
-    /**
-     * @var FormChoiceProviderInterface|FormChoiceAttributeProviderInterface
-     */
-    private $formChoiceProvider;
-
-    /**
-     * @param TranslatorInterface $translator
-     * @param array $locales
-     * @param FormChoiceProviderInterface|FormChoiceAttributeProviderInterface $formChoiceProvider
-     */
-    public function __construct(
-        TranslatorInterface $translator,
-        array $locales,
-        $formChoiceProvider
-    ) {
-        parent::__construct($translator, $locales);
-        $this->formChoiceProvider = $formChoiceProvider;
-    }
-
     /**
      * {@inheritDoc}
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         $builder
-            ->add('type', ChoiceType::class, [
-                'choices' => $this->formChoiceProvider->getChoices(),
-                'choice_attr' => $this->formChoiceProvider->getChoicesAttributes(),
-                'required' => true,
-                'label' => false,
-                'empty_data' => ProductType::TYPE_STANDARD,
-                'block_prefix' => 'product_type',
-            ])
+            ->add('type', ProductTypeType::class)
+            ->add('shop_id', HiddenType::class)
             ->add('create', SubmitType::class, [
                 'label' => $this->trans('Add new product', 'Admin.Catalog.Feature'),
                 'row_attr' => [
@@ -80,6 +54,17 @@ class CreateProductFormType extends TranslatorAwareType
                 ],
             ])
         ;
+
+        $builder->addEventListener(FormEvents::PRE_SET_DATA, function (FormEvent $event) {
+            $data = $event->getData();
+            if (!empty($data['shop_id'])) {
+                return;
+            }
+
+            // If no shop as pre-selected we use the shop selector input instead of a hidden one
+            $form = $event->getForm();
+            $form->add('shop_id', ShopSelectorType::class);
+        });
     }
 
     /**
@@ -93,6 +78,8 @@ class CreateProductFormType extends TranslatorAwareType
             'attr' => [
                 'data-modal-title' => $this->trans('Add new product', 'Admin.Catalog.Feature'),
             ],
+            'form_theme' => '@PrestaShop/Admin/Sell/Catalog/Product/FormTheme/product.html.twig',
+            'use_default_themes' => false,
         ]);
     }
 
@@ -101,6 +88,6 @@ class CreateProductFormType extends TranslatorAwareType
      */
     public function getBlockPrefix()
     {
-        return 'product';
+        return 'create_product';
     }
 }

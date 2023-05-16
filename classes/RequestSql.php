@@ -59,7 +59,7 @@ class RequestSqlCore extends ObjectModel
         ],
         'unauthorized' => [
             'DELETE', 'ALTER', 'INSERT', 'REPLACE', 'CREATE', 'TRUNCATE', 'OPTIMIZE', 'GRANT', 'REVOKE', 'SHOW', 'HANDLER',
-            'LOAD', 'ROLLBACK', 'SAVEPOINT', 'UNLOCK', 'INSTALL', 'UNINSTALL', 'ANALZYE', 'BACKUP', 'CHECK', 'CHECKSUM', 'REPAIR', 'RESTORE', 'CACHE',
+            'LOAD', 'LOAD_FILE', 'ROLLBACK', 'SAVEPOINT', 'UNLOCK', 'INSTALL', 'UNINSTALL', 'ANALZYE', 'BACKUP', 'CHECK', 'CHECKSUM', 'REPAIR', 'RESTORE', 'CACHE',
             'DESCRIBE', 'EXPLAIN', 'USE', 'HELP', 'SET', 'DUPLICATE', 'VALUES',  'INTO', 'RENAME', 'CALL', 'PROCEDURE',  'FUNCTION', 'DATABASE', 'SERVER',
             'LOGFILE', 'DEFINER', 'RETURNS', 'EVENT', 'TABLESPACE', 'VIEW', 'TRIGGER', 'DATA', 'DO', 'PASSWORD', 'USER', 'PLUGIN', 'FLUSH', 'KILL',
             'RESET', 'START', 'STOP', 'PURGE', 'EXECUTE', 'PREPARE', 'DEALLOCATE', 'LOCK', 'USING', 'DROP', 'FOR', 'UPDATE', 'BEGIN', 'BY', 'ALL', 'SHARE',
@@ -455,7 +455,7 @@ class RequestSqlCore extends ObjectModel
         $nb = count($select);
         for ($i = 0; $i < $nb; ++$i) {
             $attribut = $select[$i];
-            if ($attribut['base_expr'] != '*' && !preg_match('/\.*$/', $attribut['base_expr'])) {
+            if ($attribut['base_expr'] != '*' && !preg_match('/\.\*$/', $attribut['base_expr'])) {
                 if ($attribut['expr_type'] == 'colref') {
                     if ($attr = $this->cutAttribute(trim($attribut['base_expr']), $from)) {
                         if (!$this->attributExistInTable($attr['attribut'], $attr['table'])) {
@@ -474,6 +474,15 @@ class RequestSqlCore extends ObjectModel
                             return false;
                         }
                     }
+                }
+
+                while (is_array($attribut['sub_tree'])) {
+                    if ($attribut['expr_type'] === 'function' && in_array(strtoupper($attribut['base_expr']), $this->tested['unauthorized'])) {
+                        $this->error_sql['checkedSelect']['function'] = $attribut['base_expr'];
+
+                        return false;
+                    }
+                    $attribut = $attribut['sub_tree'][0];
                 }
             } elseif ($in) {
                 $this->error_sql['checkedSelect']['*'] = false;
@@ -499,7 +508,7 @@ class RequestSqlCore extends ObjectModel
         $nb = count($where);
         for ($i = 0; $i < $nb; ++$i) {
             $attribut = $where[$i];
-            if ($attribut['expr_type'] == 'colref' || $attribut['expr_type'] == 'reserved') {
+            if ($attribut['expr_type'] == 'colref') {
                 if ($attr = $this->cutAttribute(trim($attribut['base_expr']), $from)) {
                     if (!$this->attributExistInTable($attr['attribut'], $attr['table'])) {
                         $this->error_sql['checkedWhere']['attribut'] = [$attr['attribut'], implode(', ', $attr['table'])];
@@ -507,15 +516,15 @@ class RequestSqlCore extends ObjectModel
                         return false;
                     }
                 } else {
-                    if (isset($this->error_sql['returnNameTable'])) {
-                        $this->error_sql['checkedWhere'] = $this->error_sql['returnNameTable'];
+                    $this->error_sql['checkedWhere'] = $this->error_sql['returnNameTable'] ?? false;
 
-                        return false;
-                    } else {
-                        $this->error_sql['checkedWhere'] = false;
+                    return false;
+                }
+            } elseif ($attribut['expr_type'] == 'reserved') {
+                if ($attribut['base_expr'] !== 'EXISTS' || !isset($where[$i + 1]) || $where[$i + 1]['expr_type'] !== 'subquery') {
+                    $this->error_sql['checkedWhere'] = $this->error_sql['returnNameTable'] ?? false;
 
-                        return false;
-                    }
+                    return false;
                 }
             } elseif ($attribut['expr_type'] == 'operator') {
                 if (!in_array(strtoupper($attribut['base_expr']), $this->tested['operator'])) {

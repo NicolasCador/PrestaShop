@@ -264,7 +264,7 @@ class OrderDetailCore extends ObjectModel
     /** @var bool */
     protected $outOfStock = false;
 
-    /** @var TaxCalculator object */
+    /** @var TaxCalculator|null object */
     protected $tax_calculator = null;
 
     /** @var Address object */
@@ -533,28 +533,45 @@ class OrderDetailCore extends ObjectModel
     }
 
     /**
-     * Check the order status.
+     * Updates product quantity in stock, according to order status.
      *
      * @param array $product
-     * @param int $id_order_state
+     * @param int $orderStateId
      */
-    protected function checkProductStock($product, $id_order_state)
+    protected function updateProductQuantityInStock($product, $orderStateId): void
     {
-        if ($id_order_state != Configuration::get('PS_OS_CANCELED') && $id_order_state != Configuration::get('PS_OS_ERROR')) {
-            $update_quantity = true;
-            if (!StockAvailable::dependsOnStock($product['id_product'])) {
-                $update_quantity = StockAvailable::updateQuantity($product['id_product'], $product['id_product_attribute'], -(int) $product['cart_quantity'], $product['id_shop'], true);
-            }
-
-            if ($update_quantity) {
-                $product['stock_quantity'] -= $product['cart_quantity'];
-            }
-
-            if ($product['stock_quantity'] < 0 && Configuration::get('PS_STOCK_MANAGEMENT')) {
-                $this->outOfStock = true;
-            }
-            Product::updateDefaultAttribute($product['id_product']);
+        $dismissOrderStateIds = Configuration::getMultiple([
+            'PS_OS_CANCELED',
+            'PS_OS_ERROR',
+        ]);
+        if (in_array($orderStateId, $dismissOrderStateIds)) {
+            return;
         }
+        if (!StockAvailable::dependsOnStock($product['id_product'])) {
+            $orderState = new OrderState($orderStateId, $this->id_lang);
+            $isQuantityUpdated = StockAvailable::updateQuantity(
+                $product['id_product'],
+                $product['id_product_attribute'],
+                -(int) $product['cart_quantity'],
+                $product['id_shop'],
+                // Add stock movement only if order state is flagged as shipped
+                true === (bool) $orderState->shipped,
+                [
+                    'id_order' => $this->id_order,
+                    // Only one stock movement reason fits a new order creation
+                    'id_stock_mvt_reason' => Configuration::get('PS_STOCK_CUSTOMER_ORDER_REASON'),
+                ]
+            );
+        } else {
+            $isQuantityUpdated = true;
+        }
+        if ($isQuantityUpdated === true) {
+            $product['stock_quantity'] -= $product['cart_quantity'];
+        }
+        if ($product['stock_quantity'] < 0 && Configuration::get('PS_STOCK_MANAGEMENT')) {
+            $this->outOfStock = true;
+        }
+        Product::updateDefaultAttribute($product['id_product']);
     }
 
     /**
@@ -640,6 +657,8 @@ class OrderDetailCore extends ObjectModel
         $this->setContext((int) $product['id_shop']);
         Product::getPriceStatic((int) $product['id_product'], true, (int) $product['id_product_attribute'], 6, null, false, true, $product['cart_quantity'], false, (int) $order->id_customer, (int) $order->id_cart, (int) $order->{Configuration::get('PS_TAX_ADDRESS_TYPE')}, $specific_price, true, true, $this->context);
         $this->specificPrice = $specific_price;
+        $this->original_product_price = Product::getPriceStatic($product['id_product'], false, (int) $product['id_product_attribute'], 6, null, false, false, 1, false, null, null, null, $null, true, true, $this->context, true, $product['id_customization']);
+        $this->product_price = $this->original_product_price;
         $this->original_product_price = Product::getPriceStatic(
             $product['id_product'],
             false,
@@ -656,7 +675,9 @@ class OrderDetailCore extends ObjectModel
             $null,
             true,
             true,
-            $this->context
+            $this->context,
+            true,
+            $product['id_customization']
         );
         $this->unit_price_tax_incl = (float) $product['price_wt'];
         $this->product_price = $this->unit_price_tax_excl = (float) $product['price'];
@@ -701,7 +722,9 @@ class OrderDetailCore extends ObjectModel
             $null,
             true,
             true,
-            $this->context
+            $this->context,
+            true,
+            $product['id_customization']
         );
         $this->product_quantity_discount = 0.00;
         if ($quantity_discount) {
@@ -751,7 +774,8 @@ class OrderDetailCore extends ObjectModel
         $this->product_mpn = empty($product['mpn']) ? null : pSQL($product['mpn']);
         $this->product_reference = empty($product['reference']) ? null : pSQL($product['reference']);
         $this->product_supplier_reference = empty($product['supplier_reference']) ? null : pSQL($product['supplier_reference']);
-        $this->product_weight = $product['id_product_attribute'] ? (float) $product['weight_attribute'] : (float) $product['weight'];
+        $product_weight = $product['id_product_attribute'] ? (float) $product['weight_attribute'] : (float) $product['weight'];
+        $this->product_weight = $product_weight + Customization::getCustomizationWeight($product['id_customization']);
         $this->id_warehouse = $id_warehouse;
 
         // We get the real quantity of the product in stock and save how much of the ordered quantity was in stock
@@ -763,7 +787,7 @@ class OrderDetailCore extends ObjectModel
             $product_quantity_in_stock : (int) $product['cart_quantity'];
 
         $this->setVirtualProductInformation($product);
-        $this->checkProductStock($product, $id_order_state);
+        $this->updateProductQuantityInStock($product, $id_order_state);
 
         if ($use_taxes) {
             $this->setProductTax($order, $product);
@@ -907,7 +931,7 @@ class OrderDetailCore extends ObjectModel
                 foreach ($order_products as &$order_product) {
                     $order_product['image'] = Context::getContext()->link->getImageLink(
                         $order_product['link_rewrite'],
-                        (int) $order_product['product_id'] . '-' . (int) $order_product['id_image'],
+                        (int) $order_product['id_image'],
                         ImageType::getFormattedName('medium')
                     );
                     $order_product['link'] = Context::getContext()->link->getProductLink(

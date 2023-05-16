@@ -22,7 +22,7 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
-$(document).ready(function () {
+$(function () {
   if (youEditFieldFor) {
     $('.translatable span.hint').append(`<br /><span class="red">${youEditFieldFor}</span>`);
   }
@@ -59,10 +59,9 @@ function updateEmployeeNotifications() {
 }
 
 function renderOrderNotification(value) {
-  const query = `tab=AdminOrders&token=${token_admin_orders}&vieworder&id_order=${value.id_order}`;
   const carrier = value.carrier !== '' ? ` - ${value.carrier}` : '';
   return `
-    <a class="notif" href="${baseAdminDir}index.php?${query}">
+    <a class="notif" href="${value.order_view_url}">
       #${value.id_order} - ${from_msg}&nbsp;<strong>${value.customer_name}</strong> (${value.iso_code})
       <strong class="pull-right">${value.total_paid}</strong>${carrier}
     </a>
@@ -79,10 +78,9 @@ function renderCustomerNotification(value) {
 }
 
 function renderMessageNotification(value) {
-  const query = `tab=AdminCustomerThreads&token=${token_admin_customer_threads}&viewcustomer_thread&id_customer_thread=${value.id_customer_thread}`;
   const company = value.company !== '' ? ` (${value.company})` : '';
   return `
-    <a class="notif" href="${baseAdminDir}index.php?${query}">
+    <a class="notif" href="${value.customer_thread_view_url}">
       <span class="message-notification-status ${value.status}">
         <i class="material-icons">fiber_manual_record</i> ${value.status}
       </span>

@@ -31,6 +31,10 @@ use Configuration;
 use Country;
 use PHPUnit\Framework\Assert;
 use PrestaShop\PrestaShop\Core\Domain\Supplier\Command\AddSupplierCommand;
+use PrestaShop\PrestaShop\Core\Domain\Supplier\Command\DeleteSupplierCommand;
+use PrestaShop\PrestaShop\Core\Domain\Supplier\Command\DeleteSupplierLogoImageCommand;
+use PrestaShop\PrestaShop\Core\Domain\Supplier\Command\EditSupplierCommand;
+use PrestaShop\PrestaShop\Core\Domain\Supplier\Command\ToggleSupplierStatusCommand;
 use PrestaShop\PrestaShop\Core\Domain\Supplier\Exception\SupplierException;
 use PrestaShop\PrestaShop\Core\Domain\Supplier\Query\GetSupplierForEditing;
 use PrestaShop\PrestaShop\Core\Domain\Supplier\Query\GetSupplierForViewing;
@@ -84,7 +88,7 @@ class SupplierFeatureContext extends AbstractDomainFeatureContext
     }
 
     /**
-     * @When I add new supplier :supplierReference with following properties:
+     * @When I add new supplier :supplierReference with the following properties:
      *
      * @param string $supplierReference
      * @param TableNode $table
@@ -117,6 +121,136 @@ class SupplierFeatureContext extends AbstractDomainFeatureContext
         } catch (SupplierException $e) {
             $this->setLastException($e);
         }
+    }
+
+    /**
+     * @When I edit supplier :supplierReference with the following properties:
+     *
+     * @param string $supplierReference
+     * @param TableNode $table
+     */
+    public function editSupplier(string $supplierReference, TableNode $table)
+    {
+        $supplierId = (int) $this->getSharedStorage()->get($supplierReference);
+        $data = $this->localizeByRows($table);
+
+        $editCommand = new EditSupplierCommand($supplierId);
+        if (isset($data['name'])) {
+            $editCommand->setName($data['name']);
+        }
+        if (isset($data['address'])) {
+            $editCommand->setAddress($data['address']);
+        }
+        if (isset($data['address2'])) {
+            $editCommand->setAddress2($data['address2']);
+        }
+        if (isset($data['post code'])) {
+            $editCommand->setPostCode($data['post code']);
+        }
+        if (isset($data['city'])) {
+            $editCommand->setCity($data['city']);
+        }
+        if (isset($data['state'])) {
+            $editCommand->setStateId((int) State::getIdByName($data['state']));
+        }
+        if (isset($data['country'])) {
+            $editCommand->setCountryId($this->getCountryIdByName($data['country']));
+        }
+        if (isset($data['dni'])) {
+            $editCommand->setDni($data['dni']);
+        }
+        if (isset($data['phone'])) {
+            $editCommand->setPhone($data['phone']);
+        }
+        if (isset($data['mobile phone'])) {
+            $editCommand->setMobilePhone($data['mobile phone']);
+        }
+        if (isset($data['enabled'])) {
+            $editCommand->setEnabled(PrimitiveUtils::castStringBooleanIntoBoolean($data['enabled']));
+        }
+        if (isset($data['description'])) {
+            $editCommand->setLocalizedDescriptions($data['description']);
+        }
+        if (isset($data['meta title'])) {
+            $editCommand->setLocalizedMetaTitles($data['meta title']);
+        }
+        if (isset($data['meta description'])) {
+            $editCommand->setLocalizedMetaDescriptions($data['meta description']);
+        }
+        if (isset($data['meta keywords'])) {
+            $editCommand->setLocalizedMetaKeywords($data['meta keywords']);
+        }
+        if (isset($data['shops'])) {
+            $editCommand->setAssociatedShops($this->getShopIdsByReferences($data['shops']));
+        }
+
+        try {
+            $this->getCommandBus()->handle($editCommand);
+        } catch (SupplierException $e) {
+            $this->setLastException($e);
+        }
+
+        if (isset($data['logo image'])) {
+            $this->pretendImageUploaded(_PS_SUPP_IMG_DIR_, $data['logo image'], $supplierId);
+        }
+    }
+
+    /**
+     * @Given the supplier :supplierReference has a logo image
+     *
+     * @param string $supplierReference
+     */
+    public function assertManufacturerHasLogoImage(string $supplierReference): void
+    {
+        $editableSupplier = $this->getEditableSupplier($supplierReference);
+        Assert::assertNotNull($editableSupplier->getLogoImage());
+    }
+
+    /**
+     * @Then the supplier :supplierReference does not have a logo image
+     *
+     * @param string $supplierReference
+     */
+    public function assertManufacturerHasNotLogoImage(string $supplierReference)
+    {
+        $editableSupplier = $this->getEditableSupplier($supplierReference);
+        Assert::assertNull($editableSupplier->getLogoImage());
+    }
+
+    /**
+     * @When I toggle status for supplier :supplierReference
+     *
+     * @param string $supplierReference
+     *
+     * @throws SupplierException
+     */
+    public function toggleSupplier(string $supplierReference): void
+    {
+        $this->getCommandBus()->handle(new ToggleSupplierStatusCommand($this->getSharedStorage()->get($supplierReference)));
+    }
+
+    /**
+     * @When I delete supplier :supplierReference
+     *
+     * @param string $supplierReference
+     *
+     * @throws SupplierException
+     */
+    public function deleteSupplier(string $supplierReference): void
+    {
+        $this->getCommandBus()->handle(new DeleteSupplierCommand($this->getSharedStorage()->get($supplierReference)));
+    }
+
+    /**
+     * @When I delete the supplier :supplierReference logo image
+     *
+     * @param string $supplierReference
+     */
+    public function deleteCategoryLogoImage(string $supplierReference): void
+    {
+        $supplierId = (int) $this->getSharedStorage()->get($supplierReference);
+
+        $this->getCommandBus()->handle(new DeleteSupplierLogoImageCommand($supplierId));
     }
 
     /**
@@ -222,7 +356,7 @@ class SupplierFeatureContext extends AbstractDomainFeatureContext
      */
     private function getCountryIdByName(string $name): int
     {
-        return Country::getIdByName(Configuration::get('PS_LANG_DEFAULT'), $name);
+        return Country::getIdByName((int) Configuration::get('PS_LANG_DEFAULT'), $name);
     }
 
     /**

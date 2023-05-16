@@ -32,15 +32,15 @@ use PrestaShop\PrestaShop\Core\Domain\Product\ProductSettings;
 use PrestaShopBundle\Form\Admin\Sell\Product\Category\CategoriesType;
 use PrestaShopBundle\Form\Admin\Sell\Product\Image\ImageDropzoneType;
 use PrestaShopBundle\Form\Admin\Sell\Product\Image\ProductImageType;
-use PrestaShopBundle\Form\Admin\Type\EntitySearchInputType;
 use PrestaShopBundle\Form\Admin\Type\FormattedTextareaType;
+use PrestaShopBundle\Form\Admin\Type\ProductSearchType;
 use PrestaShopBundle\Form\Admin\Type\TranslatableType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Routing\RouterInterface;
-use Symfony\Component\Translation\TranslatorInterface;
 use Symfony\Component\Validator\Constraints\Length;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class DescriptionType extends TranslatorAwareType
 {
@@ -55,20 +55,28 @@ class DescriptionType extends TranslatorAwareType
     private $employeeIsoCode;
 
     /**
+     * @var int
+     */
+    private $shortDescriptionMaxLength;
+
+    /**
      * @param TranslatorInterface $translator
      * @param array $locales
      * @param RouterInterface $router
      * @param string $employeeIsoCode
+     * @param int $shortDescriptionMaxLength
      */
     public function __construct(
         TranslatorInterface $translator,
         array $locales,
         RouterInterface $router,
-        string $employeeIsoCode
+        string $employeeIsoCode,
+        int $shortDescriptionMaxLength
     ) {
         parent::__construct($translator, $locales);
         $this->router = $router;
         $this->employeeIsoCode = $employeeIsoCode;
+        $this->shortDescriptionMaxLength = $shortDescriptionMaxLength;
     }
 
     /**
@@ -76,41 +84,33 @@ class DescriptionType extends TranslatorAwareType
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
-        $productId = (int) $options['product_id'];
+        $productId = $options['product_id'];
+        $shopId = $options['shop_id'];
 
-        if ($productId) {
-            $builder
-                ->add('images', ImageDropzoneType::class, [
-                    'product_id' => $productId,
-                    'update_form_type' => ProductImageType::class,
-                ])
-            ;
+        if ($this->shortDescriptionMaxLength > 0) {
+            $shortDescriptionLimit = $this->shortDescriptionMaxLength;
+        } else {
+            $shortDescriptionLimit = ProductSettings::MAX_DESCRIPTION_SHORT_LENGTH;
         }
 
         $builder
+            ->add('images', ImageDropzoneType::class, [
+                'product_id' => $productId,
+                'shop_id' => $shopId,
+                'update_form_type' => ProductImageType::class,
+            ])
             ->add('description_short', TranslatableType::class, [
                 'required' => false,
                 'label' => $this->trans('Summary', 'Admin.Global'),
                 'type' => FormattedTextareaType::class,
                 'options' => [
-                    'limit' => ProductSettings::MAX_DESCRIPTION_SHORT_LENGTH,
+                    'limit' => $shortDescriptionLimit,
                     'attr' => [
                         'class' => 'serp-default-description',
                     ],
-                    'constraints' => [
-                        new Length([
-                            'max' => ProductSettings::MAX_DESCRIPTION_SHORT_LENGTH,
-                            'maxMessage' => $this->trans(
-                                'This field cannot be longer than %limit% characters.',
-                                'Admin.Notifications.Error',
-                                [
-                                    '%limit%' => ProductSettings::MAX_DESCRIPTION_SHORT_LENGTH,
-                                ]
-                            ),
-                        ]),
-                    ],
                 ],
-                'label_tag_name' => 'h2',
+                'label_tag_name' => 'h3',
+                'modify_all_shops' => true,
             ])
             ->add('description', TranslatableType::class, [
                 'required' => false,
@@ -131,28 +131,29 @@ class DescriptionType extends TranslatorAwareType
                         ]),
                     ],
                 ],
-                'label_tag_name' => 'h2',
+                'label_tag_name' => 'h3',
+                'modify_all_shops' => true,
             ])
             ->add('categories', CategoriesType::class, [
                 'label' => $this->trans('Categories', 'Admin.Global'),
-                'label_tag_name' => 'h2',
+                'label_tag_name' => 'h3',
                 'product_id' => $productId,
             ])
             ->add('manufacturer', ManufacturerType::class)
-            ->add('related_products', EntitySearchInputType::class, [
+            ->add('related_products', ProductSearchType::class, [
+                'include_combinations' => false,
                 'label' => $this->trans('Related products', 'Admin.Catalog.Feature'),
-                'label_tag_name' => 'h2',
-                'entry_type' => RelatedProductType::class,
+                'label_tag_name' => 'h3',
                 'entry_options' => [
                     'block_prefix' => 'related_product',
                 ],
-                'remote_url' => $this->router->generate('admin_products_v2_search_associations', [
+                'remote_url' => $this->router->generate('admin_products_search_products_for_association', [
                     'languageCode' => $this->employeeIsoCode,
                     'query' => '__QUERY__',
                 ]),
                 'min_length' => 3,
+                'limit' => 0,
                 'filtered_identities' => $productId > 0 ? [$productId] : [],
-                'placeholder' => $this->trans('Search product', 'Admin.Catalog.Help'),
             ])
         ;
     }
@@ -165,11 +166,15 @@ class DescriptionType extends TranslatorAwareType
         parent::configureOptions($resolver);
         $resolver
             ->setDefaults([
-                'product_id' => null,
                 'required' => false,
-                'label' => false,
+                'label' => $this->trans('Description', 'Admin.Catalog.Feature'),
             ])
-            ->setAllowedTypes('product_id', ['null', 'int'])
+            ->setRequired([
+                'product_id',
+                'shop_id',
+            ])
+            ->setAllowedTypes('product_id', 'int')
+            ->setAllowedTypes('shop_id', 'int')
         ;
     }
 }

@@ -32,30 +32,30 @@ class PackCore extends Product
     /**
      * Only decrement pack quantity.
      *
-     * @var string
+     * @var int
      */
-    const STOCK_TYPE_PACK_ONLY = PackStockType::STOCK_TYPE_PACK_ONLY;
+    public const STOCK_TYPE_PACK_ONLY = PackStockType::STOCK_TYPE_PACK_ONLY;
 
     /**
      * Only decrement pack products quantities.
      *
-     * @var string
+     * @var int
      */
-    const STOCK_TYPE_PRODUCTS_ONLY = PackStockType::STOCK_TYPE_PRODUCTS_ONLY;
+    public const STOCK_TYPE_PRODUCTS_ONLY = PackStockType::STOCK_TYPE_PRODUCTS_ONLY;
 
     /**
      * Decrement pack quantity and pack products quantities.
      *
-     * @var string
+     * @var int
      */
-    const STOCK_TYPE_PACK_BOTH = PackStockType::STOCK_TYPE_BOTH;
+    public const STOCK_TYPE_PACK_BOTH = PackStockType::STOCK_TYPE_BOTH;
 
     /**
      * Use pack quantity default setting.
      *
-     * @var string
+     * @var int
      */
-    const STOCK_TYPE_DEFAULT = PackStockType::STOCK_TYPE_DEFAULT;
+    public const STOCK_TYPE_DEFAULT = PackStockType::STOCK_TYPE_DEFAULT;
 
     protected static $cachePackItems = [];
     protected static $cacheIsPack = [];
@@ -219,7 +219,7 @@ class PackCore extends Product
         $idProduct = (int) $idProduct;
         $wantedQuantity = (int) $wantedQuantity;
         $product = new Product($idProduct, false);
-        $packQuantity = self::getQuantity($idProduct, null, null, $cart);
+        $packQuantity = self::getQuantity($idProduct, null, null, $cart, false);
 
         if ($product->isAvailableWhenOutOfStock($product->out_of_stock)) {
             return true;
@@ -236,8 +236,8 @@ class PackCore extends Product
      * @param int $idProduct Product id
      * @param int|null $idProductAttribute Product attribute id (optional)
      * @param bool|null $cacheIsPack
-     * @param Cart|null $cart
-     * @param int|null $idCustomization Product customization id (optional)
+     * @param CartCore|null $cart
+     * @param bool|int|null $idCustomization Product customization id (optional)
      *
      * @return int
      *
@@ -247,12 +247,11 @@ class PackCore extends Product
         $idProduct,
         $idProductAttribute = null,
         $cacheIsPack = null,
-        Cart $cart = null,
+        CartCore $cart = null,
         $idCustomization = null
     ) {
         $idProduct = (int) $idProduct;
         $idProductAttribute = (int) $idProductAttribute;
-        $cacheIsPack = (bool) $cacheIsPack;
 
         if (!self::isPack($idProduct)) {
             throw new PrestaShopException("Product with id $idProduct is not a pack");
@@ -350,6 +349,7 @@ class PackCore extends Product
 
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
 
+        /** @var array{id_product: int, id_product_attribute_item: int|null, name: string} $line */
         foreach ($result as &$line) {
             if (Combination::isFeatureActive() && isset($line['id_product_attribute_item']) && $line['id_product_attribute_item']) {
                 $line['cache_default_attribute'] = $line['id_product_attribute'] = $line['id_product_attribute_item'];
@@ -447,9 +447,14 @@ class PackCore extends Product
         return $array_result;
     }
 
-    public static function deleteItems($id_product)
+    public static function deleteItems($id_product, $refreshCache = true)
     {
-        return Db::getInstance()->update('product', ['cache_is_pack' => 0], 'id_product = ' . (int) $id_product) &&
+        $result = true;
+        if ($refreshCache) {
+            $result = Db::getInstance()->update('product', ['cache_is_pack' => 0], 'id_product = ' . (int) $id_product);
+        }
+
+        return $result &&
             Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'pack` WHERE `id_product_pack` = ' . (int) $id_product) &&
             Configuration::updateGlobalValue('PS_PACK_FEATURE_ACTIVE', Pack::isCurrentlyUsed());
     }

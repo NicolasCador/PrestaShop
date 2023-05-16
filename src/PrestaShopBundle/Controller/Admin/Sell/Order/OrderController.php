@@ -30,6 +30,7 @@ use Currency;
 use Exception;
 use InvalidArgumentException;
 use PrestaShop\PrestaShop\Adapter\Shop\Context as ShopContext;
+use PrestaShop\PrestaShop\Core\Action\ActionsBarButtonsCollection;
 use PrestaShop\PrestaShop\Core\Domain\Cart\Query\GetCartForOrderCreation;
 use PrestaShop\PrestaShop\Core\Domain\CartRule\Exception\InvalidCartRuleDiscountValueException;
 use PrestaShop\PrestaShop\Core\Domain\CustomerMessage\Command\AddOrderCustomerMessageCommand;
@@ -81,11 +82,11 @@ use PrestaShop\PrestaShop\Core\Domain\Product\Exception\ProductSearchEmptyPhrase
 use PrestaShop\PrestaShop\Core\Domain\Product\Query\SearchProducts;
 use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\FoundProduct;
 use PrestaShop\PrestaShop\Core\Domain\ValueObject\QuerySorting;
+use PrestaShop\PrestaShop\Core\Form\ChoiceProvider\CurrencyByIdChoiceProvider;
 use PrestaShop\PrestaShop\Core\Form\ConfigurableFormChoiceProviderInterface;
 use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\OrderGridDefinitionFactory;
 use PrestaShop\PrestaShop\Core\Order\OrderSiblingProviderInterface;
 use PrestaShop\PrestaShop\Core\Search\Filters\OrderFilters;
-use PrestaShopBundle\Component\ActionBar\ActionsBarButtonsCollection;
 use PrestaShopBundle\Component\CsvResponse;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use PrestaShopBundle\Exception\InvalidModuleException;
@@ -249,9 +250,9 @@ class OrderController extends FrameworkBundleAdminController
                 'shop_id' => $shopContextChecker->getContextShopID(),
             ]
         );
-        $currencies = $this->get('prestashop.core.form.choice_provider.currency_by_id')->getChoices();
+        $currencies = $this->get(CurrencyByIdChoiceProvider::class)->getChoices();
 
-        $configuration = $this->get('prestashop.adapter.legacy.configuration');
+        $configuration = $this->getConfiguration();
 
         return $this->render('@PrestaShop/Admin/Sell/Order/Order/create.html.twig', [
             'currencies' => $currencies,
@@ -263,6 +264,7 @@ class OrderController extends FrameworkBundleAdminController
             'giftSettingsEnabled' => (bool) $configuration->get('PS_GIFT_WRAPPING'),
             'stockManagementEnabled' => (bool) $configuration->get('PS_STOCK_MANAGEMENT'),
             'isB2BEnabled' => (bool) $configuration->get('PS_B2B_ENABLE'),
+            'layoutTitle' => $this->trans('New order', 'Admin.Navigation.Menu'),
         ]);
     }
 
@@ -337,7 +339,7 @@ class OrderController extends FrameworkBundleAdminController
                 new BulkChangeOrderStatusCommand($data['order_ids'], (int) $data['new_order_status_id'])
             );
 
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (ChangeOrderStatusException $e) {
             $this->handleChangeOrderStatusException($e);
         } catch (Exception $e) {
@@ -356,8 +358,9 @@ class OrderController extends FrameworkBundleAdminController
      */
     public function exportAction(OrderFilters $filters)
     {
-        $isB2bEnabled = $this->get('prestashop.adapter.legacy.configuration')->get('PS_B2B_ENABLE');
+        $isB2bEnabled = $this->getConfiguration()->get('PS_B2B_ENABLE');
 
+        $filters = new OrderFilters(['limit' => null] + $filters->all());
         $orderGrid = $this->get('prestashop.core.grid.factory.order')->getGrid($filters);
 
         $headers = [
@@ -477,6 +480,7 @@ class OrderController extends FrameworkBundleAdminController
         ]);
 
         $currencyDataProvider = $this->container->get('prestashop.adapter.data_provider.currency');
+        //@todo: Fix me. Should not rely on legacy object model - Currency
         $orderCurrency = $currencyDataProvider->getCurrencyById($orderForViewing->getCurrencyId());
 
         $addProductRowForm = $this->createForm(AddProductRowType::class, [], [
@@ -515,12 +519,12 @@ class OrderController extends FrameworkBundleAdminController
 
         $this->handleOutOfStockProduct($orderForViewing);
 
-        $merchandiseReturnEnabled = (bool) $this->configuration->get('PS_ORDER_RETURN');
+        $merchandiseReturnEnabled = (bool) $this->getConfiguration()->get('PS_ORDER_RETURN');
 
         /** @var OrderSiblingProviderInterface $orderSiblingProvider */
         $orderSiblingProvider = $this->get('prestashop.adapter.order.order_sibling_provider');
 
-        $paginationNum = (int) $this->configuration->get('PS_ORDER_PRODUCTS_NB_PER_PAGE', self::DEFAULT_PRODUCTS_NUMBER);
+        $paginationNum = (int) $this->getConfiguration()->get('PS_ORDER_PRODUCTS_NB_PER_PAGE', self::DEFAULT_PRODUCTS_NUMBER);
         $paginationNumOptions = self::PRODUCTS_PAGINATION_OPTIONS;
         if (!in_array($paginationNum, $paginationNumOptions)) {
             $paginationNumOptions[] = $paginationNum;
@@ -530,7 +534,7 @@ class OrderController extends FrameworkBundleAdminController
         $metatitle = sprintf(
             '%s %s %s',
             $this->trans('Orders', 'Admin.Orderscustomers.Feature'),
-            $this->configuration->get('PS_NAVIGATION_PIPE', '>'),
+            $this->getConfiguration()->get('PS_NAVIGATION_PIPE', '>'),
             $this->trans(
                 'Order %reference% from %firstname% %lastname%',
                 'Admin.Orderscustomers.Feature',
@@ -569,7 +573,7 @@ class OrderController extends FrameworkBundleAdminController
             'nextOrderId' => $orderSiblingProvider->getNextOrderId($orderId),
             'paginationNum' => $paginationNum,
             'paginationNumOptions' => $paginationNumOptions,
-            'isAvailableQuantityDisplayed' => $this->configuration->getBoolean('PS_STOCK_MANAGEMENT'),
+            'isAvailableQuantityDisplayed' => $this->getConfiguration()->getBoolean('PS_STOCK_MANAGEMENT'),
             'internalNoteForm' => $internalNoteForm->createView(),
         ]);
     }
@@ -687,7 +691,7 @@ class OrderController extends FrameworkBundleAdminController
      */
     private function handleOutOfStockProduct(OrderForViewing $orderForViewing)
     {
-        $isStockManagementEnabled = $this->configuration->getBoolean('PS_STOCK_MANAGEMENT');
+        $isStockManagementEnabled = $this->getConfiguration()->getBoolean('PS_STOCK_MANAGEMENT');
         if (!$isStockManagementEnabled || $orderForViewing->isDelivered() || $orderForViewing->isShipped()) {
             return;
         }
@@ -782,7 +786,7 @@ class OrderController extends FrameworkBundleAdminController
                 'product' => $newProduct,
                 'isColumnLocationDisplayed' => $newProduct->getLocation() !== '',
                 'isColumnRefundedDisplayed' => $newProduct->getQuantityRefunded() > 0,
-                'isAvailableQuantityDisplayed' => $this->configuration->getBoolean('PS_STOCK_MANAGEMENT'),
+                'isAvailableQuantityDisplayed' => $this->getConfiguration()->getBoolean('PS_STOCK_MANAGEMENT'),
                 'cancelProductForm' => $cancelProductForm->createView(),
                 'orderCurrency' => $orderCurrency,
             ]);
@@ -916,7 +920,7 @@ class OrderController extends FrameworkBundleAdminController
                     )
                 );
 
-                $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
             } catch (TransistEmailSendingException $e) {
                 $this->addFlash(
                     'error',
@@ -954,7 +958,7 @@ class OrderController extends FrameworkBundleAdminController
             new DeleteCartRuleFromOrderCommand($orderId, $orderCartRuleId)
         );
 
-        $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+        $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
 
         return $this->redirectToRoute('admin_orders_view', [
             'orderId' => $orderId,
@@ -1047,7 +1051,7 @@ class OrderController extends FrameworkBundleAdminController
             'cancelProductForm' => $cancelProductForm->createView(),
             'isColumnLocationDisplayed' => $product->getLocation() !== '',
             'isColumnRefundedDisplayed' => $product->getQuantityRefunded() > 0,
-            'isAvailableQuantityDisplayed' => $this->configuration->getBoolean('PS_STOCK_MANAGEMENT'),
+            'isAvailableQuantityDisplayed' => $this->getConfiguration()->getBoolean('PS_STOCK_MANAGEMENT'),
             'orderCurrency' => $orderCurrency,
             'orderForViewing' => $orderForViewing,
             'product' => $product,
@@ -1089,7 +1093,7 @@ class OrderController extends FrameworkBundleAdminController
                         )
                     );
 
-                    $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                    $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
                 } catch (Exception $e) {
                     $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
                 }
@@ -1190,12 +1194,13 @@ class OrderController extends FrameworkBundleAdminController
                             $data['payment_method'],
                             $data['amount'],
                             $data['id_currency'],
+                            (int) $this->getContext()->employee->id,
                             $data['id_invoice'],
                             $data['transaction_id']
                         )
                     );
 
-                    $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+                    $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
                 } catch (Exception $e) {
                     $this->addFlash('error', $this->getErrorMessageForException($e, $this->getPaymentErrorMessages($e)));
                 }
@@ -1384,7 +1389,7 @@ class OrderController extends FrameworkBundleAdminController
 
             $this->getCommandBus()->handle($command);
 
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
         }
@@ -1425,7 +1430,7 @@ class OrderController extends FrameworkBundleAdminController
                 new ChangeOrderCurrencyCommand($orderId, (int) $data['new_currency_id'])
             );
 
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
         }
@@ -1578,7 +1583,7 @@ class OrderController extends FrameworkBundleAdminController
         $formBuilder = $this->get('prestashop.core.form.identifiable_object.builder.cancel_product_form_builder');
         $cancelProductForm = $formBuilder->getFormFor($orderId);
 
-        $paginationNum = $this->configuration->getInt('PS_ORDER_PRODUCTS_NB_PER_PAGE', self::DEFAULT_PRODUCTS_NUMBER);
+        $paginationNum = $this->getConfiguration()->getInt('PS_ORDER_PRODUCTS_NB_PER_PAGE', self::DEFAULT_PRODUCTS_NUMBER);
         $paginationNumOptions = self::PRODUCTS_PAGINATION_OPTIONS;
         if (!in_array($paginationNum, $paginationNumOptions)) {
             $paginationNumOptions[] = $paginationNum;
@@ -1604,7 +1609,7 @@ class OrderController extends FrameworkBundleAdminController
             'paginationNum' => $paginationNum,
             'isColumnLocationDisplayed' => $isColumnLocationDisplayed,
             'isColumnRefundedDisplayed' => $isColumnRefundedDisplayed,
-            'isAvailableQuantityDisplayed' => $this->configuration->getBoolean('PS_STOCK_MANAGEMENT'),
+            'isAvailableQuantityDisplayed' => $this->getConfiguration()->getBoolean('PS_STOCK_MANAGEMENT'),
         ]);
     }
 
@@ -1625,7 +1630,7 @@ class OrderController extends FrameworkBundleAdminController
         try {
             $this->getCommandBus()->handle(new GenerateInvoiceCommand($orderId));
 
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (Exception $e) {
             $this->addFlash('error', $this->getErrorMessageForException($e, $this->getErrorMessages($e)));
         }
@@ -1712,7 +1717,7 @@ class OrderController extends FrameworkBundleAdminController
         }
 
         try {
-            $this->configuration->set('PS_ORDER_PRODUCTS_NB_PER_PAGE', $numPerPage);
+            $this->getConfiguration()->set('PS_ORDER_PRODUCTS_NB_PER_PAGE', $numPerPage);
         } catch (Exception $e) {
             return $this->json(
                 ['message' => $this->getErrorMessageForException($e, $this->getErrorMessages($e))],
@@ -1822,7 +1827,7 @@ class OrderController extends FrameworkBundleAdminController
     public function searchProductsAction(Request $request): JsonResponse
     {
         try {
-            $defaultCurrencyId = (int) $this->get('prestashop.adapter.legacy.configuration')->get('PS_CURRENCY_DEFAULT');
+            $defaultCurrencyId = (int) $this->getConfiguration()->get('PS_CURRENCY_DEFAULT');
 
             $searchPhrase = $request->query->get('search_phrase');
             $currencyId = $request->query->get('currency_id');
@@ -1842,12 +1847,12 @@ class OrderController extends FrameworkBundleAdminController
             ]);
         } catch (ProductSearchEmptyPhraseException $e) {
             return $this->json(
-                [$e, 'message' => $this->getErrorMessageForException($e, $this->getErrorMessages($e))],
+                ['message' => $this->getErrorMessageForException($e, $this->getErrorMessages($e))],
                 Response::HTTP_BAD_REQUEST
             );
         } catch (Exception $e) {
             return $this->json(
-                [$e, 'message' => $this->getErrorMessageForException($e, [])],
+                ['message' => $this->getErrorMessageForException($e, [])],
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
@@ -1868,7 +1873,7 @@ class OrderController extends FrameworkBundleAdminController
                     $orderStatusId
                 )
             );
-            $this->addFlash('success', $this->trans('Successful update.', 'Admin.Notifications.Success'));
+            $this->addFlash('success', $this->trans('Successful update', 'Admin.Notifications.Success'));
         } catch (ChangeOrderStatusException $e) {
             $this->handleChangeOrderStatusException($e);
         } catch (Exception $e) {
@@ -1893,7 +1898,14 @@ class OrderController extends FrameworkBundleAdminController
         }
 
         return [
-            CannotEditDeliveredOrderProductException::class => $this->trans('You cannot edit the cart once the order delivered.', 'Admin.Orderscustomers.Notification'),
+            ProductSearchEmptyPhraseException::class => $this->trans(
+                'Product search phrase must not be an empty string.',
+                'Admin.Orderscustomers.Notification'
+            ),
+            CannotEditDeliveredOrderProductException::class => $this->trans(
+                'You cannot edit the cart once the order delivered.',
+                'Admin.Orderscustomers.Notification'
+            ),
             OrderNotFoundException::class => $e instanceof OrderNotFoundException ?
                 $this->trans(
                     'Order #%d cannot be loaded.',

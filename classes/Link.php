@@ -122,7 +122,7 @@ class LinkCore
     /**
      * Create a link to a product.
      *
-     * @param Product|array|int $product Product object (can be an ID product, but deprecated)
+     * @param ProductCore|array|int $product Product object (can be an ID product, but deprecated)
      * @param string|null $alias
      * @param string|null $category
      * @param string|null $ean13
@@ -411,7 +411,7 @@ class LinkCore
     /**
      * Create a link to a category.
      *
-     * @param Category|array|int $category Category object (can be an ID category, but deprecated)
+     * @param CategoryCore|array|int|string $category Category object (can be an ID category, but deprecated)
      * @param string|null $alias
      * @param int|null $idLang
      * @param string|null $selectedFilters Url parameter to autocheck filters of the module blocklayered
@@ -440,12 +440,16 @@ class LinkCore
         $params = [];
         if (Validate::isLoadedObject($category)) {
             $params['id'] = $category->id;
-        } elseif (isset($category['id_category'])) {
+        } elseif (is_array($category) && isset($category['id_category'])) {
             $params['id'] = $category['id_category'];
-        } elseif (is_int($category) or ctype_digit($category)) {
+        } elseif (is_int($category) || (is_string($category) && ctype_digit($category))) {
             $params['id'] = (int) $category;
         } else {
             throw new \InvalidArgumentException('Invalid category parameter');
+        }
+
+        if ((int) $params['id'] === 0) {
+            Tools::displayAsDeprecated('Generating URL with id 0 is deprecated');
         }
 
         $rule = 'category_rule';
@@ -878,7 +882,7 @@ class LinkCore
 
     /**
      * Used when you explicitly want to create a LEGACY admin link, this should be deprecated
-     * in 1.8.0.
+     * in 9.x
      *
      * @param string $controller
      * @param bool $withToken
@@ -919,7 +923,7 @@ class LinkCore
             if (null !== $idShop) {
                 $shop = new Shop($idShop);
             } else {
-                $shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+                $shop = new Shop((int) Configuration::get('PS_SHOP_DEFAULT'));
             }
         } else {
             $shop = Context::getContext()->shop;
@@ -974,38 +978,46 @@ class LinkCore
 
     /**
      * Returns a link to a product image for display
-     * Note: the new image filesystem stores product images in subdirectories of img/p/.
+     * Note: image filesystem stores product images in subdirectories of img/p/.
      *
-     * @param string $name rewrite link of the image
-     * @param string $ids id part of the image filename - can be "id_product-id_image" (legacy support, recommended) or "id_image" (new)
-     * @param string|null $type
+     * @param string $name Rewrite link of the image
+     * @param string|int $idImage numeric ID of product image or a name of default image like "fr-default"
+     * @param string|null $type Image thumbnail name (small_default, medium_default, large_default, etc.)
+     * @param string $extension What image extension should the link point to
      *
      * @return string
      */
-    public function getImageLink($name, $ids, $type = null)
+    public function getImageLink($name, $idImage, $type = null, string $extension = 'jpg')
     {
-        $notDefault = false;
-        $psLegacyImages = Configuration::get('PS_LEGACY_IMAGES');
+        $type = ($type ? '-' . $type : '');
+        $idImage = (string) $idImage;
 
-        // legacy mode or default image
-        $theme = ((Shop::isFeatureActive() && file_exists(_PS_PRODUCT_IMG_DIR_ . $ids . ($type ? '-' . $type : '') . '-' . Context::getContext()->shop->theme_name . '.jpg')) ? '-' . Context::getContext()->shop->theme_name : '');
-        if (($psLegacyImages
-                && (file_exists(_PS_PRODUCT_IMG_DIR_ . $ids . ($type ? '-' . $type : '') . $theme . '.jpg')))
-            || ($notDefault = strpos($ids, 'default') !== false)) {
-            if ($this->allow && !$notDefault) {
-                $uriPath = __PS_BASE_URI__ . $ids . ($type ? '-' . $type : '') . $theme . '/' . $name . '.jpg';
-            } else {
-                $uriPath = _THEME_PROD_DIR_ . $ids . ($type ? '-' . $type : '') . $theme . '.jpg';
-            }
+        // Default image like "fr-default"
+        if (strpos($idImage, 'default') !== false) {
+            $theme = ((Shop::isFeatureActive() && file_exists(_PS_PRODUCT_IMG_DIR_ . $idImage . $type . '-' . Context::getContext()->shop->theme_name . '.jpg')) ? '-' . Context::getContext()->shop->theme_name : '');
+            $uriPath = _THEME_PROD_DIR_ . $idImage . $type . $theme . '.' . $extension;
+
+        // Regular image with numeric ID
         } else {
-            // if ids if of the form id_product-id_image, we want to extract the id_image part
-            $splitIds = explode('-', $ids);
-            $idImage = (isset($splitIds[1]) ? $splitIds[1] : $splitIds[0]);
-            $theme = ((Shop::isFeatureActive() && file_exists(_PS_PRODUCT_IMG_DIR_ . Image::getImgFolderStatic($idImage) . $idImage . ($type ? '-' . $type : '') . '-' . (int) Context::getContext()->shop->theme_name . '.jpg')) ? '-' . Context::getContext()->shop->theme_name : '');
+            // We will still process the old way of requesting images in a form of productID-imageID, but notify developers
+            if (strpos($idImage, '-')) {
+                $idImage = explode('-', $idImage)[1];
+                if (_PS_MODE_DEV_) {
+                    trigger_error(
+                        'Passing image identifier in the old format is deprecated, use only image ID. This fallback will be removed in next major.',
+                        E_USER_DEPRECATED
+                    );
+                }
+            }
+
+            $theme = ((Shop::isFeatureActive() && file_exists(_PS_PRODUCT_IMG_DIR_ . Image::getImgFolderStatic($idImage) . $idImage . $type . '-' . (int) Context::getContext()->shop->theme_name . '.jpg')) ? '-' . Context::getContext()->shop->theme_name : '');
+
+            // If friendly URLs are enabled
             if ($this->allow) {
-                $uriPath = __PS_BASE_URI__ . $idImage . ($type ? '-' . $type : '') . $theme . '/' . $name . '.jpg';
+                $uriPath = __PS_BASE_URI__ . $idImage . $type . $theme . '/' . $name . '.' . $extension;
+            // If friendly URLs are disabled
             } else {
-                $uriPath = _THEME_PROD_DIR_ . Image::getImgFolderStatic($idImage) . $idImage . ($type ? '-' . $type : '') . $theme . '.jpg';
+                $uriPath = _THEME_PROD_DIR_ . Image::getImgFolderStatic($idImage) . $idImage . $type . $theme . '.' . $extension;
             }
         }
 
@@ -1016,22 +1028,23 @@ class LinkCore
      * Returns a link to a supplier image for display.
      *
      * @param int $idSupplier
-     * @param string|null $type image type (small_default, medium_default, large_default, etc.)
+     * @param string|null $type Image thumbnail name (small_default, medium_default, large_default, etc.)
+     * @param string $extension What image extension should the link point to
      *
      * @return string
      */
-    public function getSupplierImageLink($idSupplier, $type = null)
+    public function getSupplierImageLink($idSupplier, $type = null, string $extension = 'jpg')
     {
         $idSupplier = (int) $idSupplier;
 
-        if (file_exists(_PS_SUPP_IMG_DIR_ . $idSupplier . (empty($type) ? '.jpg' : '-' . $type . '.jpg'))) {
-            $uriPath = _THEME_SUP_DIR_ . $idSupplier . (empty($type) ? '.jpg' : '-' . $type . '.jpg');
-        } elseif (!empty($type) && file_exists(_PS_SUPP_IMG_DIR_ . $idSupplier . '.jpg')) { // !empty($type) because if is empty, is already tested
-            $uriPath = _THEME_SUP_DIR_ . $idSupplier . '.jpg';
-        } elseif (file_exists(_PS_SUPP_IMG_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.jpg' : '-default-' . $type . '.jpg'))) {
-            $uriPath = _THEME_SUP_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.jpg' : '-default-' . $type . '.jpg');
+        if (file_exists(_PS_SUPP_IMG_DIR_ . $idSupplier . (empty($type) ? '.' . $extension : '-' . $type . '.' . $extension))) {
+            $uriPath = _THEME_SUP_DIR_ . $idSupplier . (empty($type) ? '.' . $extension : '-' . $type . '.' . $extension);
+        } elseif (!empty($type) && file_exists(_PS_SUPP_IMG_DIR_ . $idSupplier . '.' . $extension)) { // !empty($type) because if is empty, is already tested
+            $uriPath = _THEME_SUP_DIR_ . $idSupplier . '.' . $extension;
+        } elseif (file_exists(_PS_SUPP_IMG_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.' . $extension : '-default-' . $type . '.' . $extension))) {
+            $uriPath = _THEME_SUP_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.' . $extension : '-default-' . $type . '.' . $extension);
         } else {
-            $uriPath = _THEME_SUP_DIR_ . Context::getContext()->language->iso_code . '.jpg';
+            $uriPath = _THEME_SUP_DIR_ . Context::getContext()->language->iso_code . '.' . $extension;
         }
 
         return $this->protocol_content . Tools::getMediaServer($uriPath) . $uriPath;
@@ -1041,22 +1054,23 @@ class LinkCore
      * Returns a link to a manufacturer image for display.
      *
      * @param int $idManufacturer
-     * @param string|null $type image type (small_default, medium_default, large_default, etc.)
+     * @param string|null $type Image thumbnail name (small_default, medium_default, large_default, etc.)
+     * @param string $extension What image extension should the link point to
      *
      * @return string
      */
-    public function getManufacturerImageLink($idManufacturer, $type = null)
+    public function getManufacturerImageLink($idManufacturer, $type = null, string $extension = 'jpg')
     {
         $idManufacturer = (int) $idManufacturer;
 
-        if (file_exists(_PS_MANU_IMG_DIR_ . $idManufacturer . (empty($type) ? '.jpg' : '-' . $type . '.jpg'))) {
-            $uriPath = _THEME_MANU_DIR_ . $idManufacturer . (empty($type) ? '.jpg' : '-' . $type . '.jpg');
-        } elseif (!empty($type) && file_exists(_PS_MANU_IMG_DIR_ . $idManufacturer . '.jpg')) { // !empty($type) because if is empty, is already tested
-            $uriPath = _THEME_MANU_DIR_ . $idManufacturer . '.jpg';
-        } elseif (file_exists(_PS_MANU_IMG_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.jpg' : '-default-' . $type . '.jpg'))) {
-            $uriPath = _THEME_MANU_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.jpg' : '-default-' . $type . '.jpg');
+        if (file_exists(_PS_MANU_IMG_DIR_ . $idManufacturer . (empty($type) ? '.' . $extension : '-' . $type . '.' . $extension))) {
+            $uriPath = _THEME_MANU_DIR_ . $idManufacturer . (empty($type) ? '.' . $extension : '-' . $type . '.' . $extension);
+        } elseif (!empty($type) && file_exists(_PS_MANU_IMG_DIR_ . $idManufacturer . '.' . $extension)) { // !empty($type) because if is empty, is already tested
+            $uriPath = _THEME_MANU_DIR_ . $idManufacturer . '.' . $extension;
+        } elseif (file_exists(_PS_MANU_IMG_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.' . $extension : '-default-' . $type . '.' . $extension))) {
+            $uriPath = _THEME_MANU_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.' . $extension : '-default-' . $type . '.' . $extension);
         } else {
-            $uriPath = _THEME_MANU_DIR_ . Context::getContext()->language->iso_code . '.jpg';
+            $uriPath = _THEME_MANU_DIR_ . Context::getContext()->language->iso_code . '.' . $extension;
         }
 
         return $this->protocol_content . Tools::getMediaServer($uriPath) . $uriPath;
@@ -1067,22 +1081,23 @@ class LinkCore
      *
      * @param string $name
      * @param int $idStore
-     * @param string|null $type image type (small_default, medium_default, large_default, etc.)
+     * @param string|null $type Image thumbnail name (small_default, medium_default, large_default, etc.)
+     * @param string $extension What image extension should the link point to
      *
      * @return string
      */
-    public function getStoreImageLink($name, $idStore, $type = null)
+    public function getStoreImageLink($name, $idStore, $type = null, string $extension = 'jpg')
     {
         $idStore = (int) $idStore;
 
-        if (file_exists(_PS_STORE_IMG_DIR_ . $idStore . (empty($type) ? '.jpg' : '-' . $type . '.jpg'))) {
-            $uriPath = _THEME_STORE_DIR_ . $idStore . (empty($type) ? '.jpg' : '-' . $type . '.jpg');
-        } elseif (!empty($type) && file_exists(_PS_STORE_IMG_DIR_ . $idStore . '.jpg')) { // !empty($type) because if is empty, is already tested
-            $uriPath = _THEME_STORE_DIR_ . $idStore . '.jpg';
-        } elseif (file_exists(_PS_STORE_IMG_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.jpg' : $type . '.jpg'))) {
-            $uriPath = _THEME_STORE_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.jpg' : $type . '.jpg');
+        if (file_exists(_PS_STORE_IMG_DIR_ . $idStore . (empty($type) ? '.' . $extension : '-' . $type . '.' . $extension))) {
+            $uriPath = _THEME_STORE_DIR_ . $idStore . (empty($type) ? '.' . $extension : '-' . $type . '.' . $extension);
+        } elseif (!empty($type) && file_exists(_PS_STORE_IMG_DIR_ . $idStore . '.' . $extension)) { // !empty($type) because if is empty, is already tested
+            $uriPath = _THEME_STORE_DIR_ . $idStore . '.' . $extension;
+        } elseif (file_exists(_PS_STORE_IMG_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.' . $extension : $type . '.' . $extension))) {
+            $uriPath = _THEME_STORE_DIR_ . Context::getContext()->language->iso_code . (empty($type) ? '.' . $extension : $type . '.' . $extension);
         } else {
-            $uriPath = _THEME_STORE_DIR_ . Context::getContext()->language->iso_code . '.jpg';
+            $uriPath = _THEME_STORE_DIR_ . Context::getContext()->language->iso_code . '.' . $extension;
         }
 
         return $this->protocol_content . Tools::getMediaServer($uriPath) . $uriPath;
@@ -1136,7 +1151,7 @@ class LinkCore
             }
         } else {
             /** @FIXME html_entity_decode has been added due to '&amp;' => '%3B' ... */
-            $request = html_entity_decode($request);
+            $request = html_entity_decode($request ?? '');
             if ($requestUrlEncode) {
                 $request = urlencode($request);
             }
@@ -1155,16 +1170,17 @@ class LinkCore
     /**
      * @param string $name
      * @param int $idCategory
-     * @param string|null $type
+     * @param string|null $type Image thumbnail name (small_default, medium_default, large_default, etc.)
+     * @param string $extension What image extension should the link point to
      *
      * @return string
      */
-    public function getCatImageLink($name, $idCategory, $type = null)
+    public function getCatImageLink($name, $idCategory, $type = null, string $extension = 'jpg')
     {
         if ($this->allow && $type) {
-            $uriPath = __PS_BASE_URI__ . 'c/' . $idCategory . '-' . $type . '/' . $name . '.jpg';
+            $uriPath = __PS_BASE_URI__ . 'c/' . $idCategory . '-' . $type . '/' . $name . '.' . $extension;
         } else {
-            $uriPath = _THEME_CAT_DIR_ . $idCategory . ($type ? '-' . $type : '') . '.jpg';
+            $uriPath = _THEME_CAT_DIR_ . $idCategory . ($type ? '-' . $type : '') . '.' . $extension;
         }
 
         return $this->protocol_content . Tools::getMediaServer($uriPath) . $uriPath;
@@ -1468,6 +1484,15 @@ class LinkCore
         $urlParameters = http_build_query($params['params']);
 
         switch ($params['entity']) {
+            case 'supplier':
+                $link = $context->link->getSupplierLink(
+                    new Supplier($params['id'], $params['id_lang']),
+                    $params['alias'],
+                    $params['id_lang'],
+                    $params['id_shop'],
+                    $params['relative_protocol']
+                );
+                break;
             case 'language':
                 $link = $context->link->getLanguageLink($params['id']);
 
@@ -1509,6 +1534,15 @@ class LinkCore
                     $params['type'] = (isset($params['type']) ? $params['type'] : null)
                 );
 
+                break;
+            case 'manufacturer':
+                $link = $context->link->getManufacturerLink(
+                    new Manufacturer($params['id'], $params['id_lang']),
+                    $params['alias'],
+                    $params['id_lang'],
+                    $params['id_shop'],
+                    $params['relative_protocol']
+                );
                 break;
             case 'manufacturerImage':
                 $link = $context->link->getManufacturerImageLink(

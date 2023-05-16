@@ -49,11 +49,15 @@ class ViewableCustomer
     private $ordersInformation;
 
     /**
+     * @deprecated Since 9.0.0 for performance reasons and returns only empty array.
+     *
      * @var CartInformation[]
      */
     private $cartsInformation;
 
     /**
+     * @deprecated Since 9.0.0, returns empty ProductsInformation object with no data.
+     *
      * @var ProductsInformation
      */
     private $productsInformation;
@@ -64,6 +68,8 @@ class ViewableCustomer
     private $messagesInformation;
 
     /**
+     * @deprecated Since 9.0.0, returns only empty array.
+     *
      * @var DiscountInformation[]
      */
     private $discountsInformation;
@@ -84,11 +90,8 @@ class ViewableCustomer
     private $groupsInformation;
 
     /**
-     * @var ReferrerInformation[]
-     */
-    private $referrersInformation;
-
-    /**
+     * @deprecated Since 9.0.0, returns only empty array.
+     *
      * @var AddressInformation[]
      */
     private $addressesInformation;
@@ -110,7 +113,6 @@ class ViewableCustomer
      * @param SentEmailInformation[] $sentEmailsInformation
      * @param LastConnectionInformation[] $lastConnectionsInformation
      * @param GroupInformation[] $groupsInformation
-     * @param ReferrerInformation[] $referrersInformation
      * @param AddressInformation[] $addressesInformation
      */
     public function __construct(
@@ -125,7 +127,6 @@ class ViewableCustomer
         array $sentEmailsInformation,
         array $lastConnectionsInformation,
         array $groupsInformation,
-        array $referrersInformation,
         array $addressesInformation
     ) {
         $this->customerId = $customerId;
@@ -138,7 +139,6 @@ class ViewableCustomer
         $this->sentEmailsInformation = $sentEmailsInformation;
         $this->lastConnectionsInformation = $lastConnectionsInformation;
         $this->groupsInformation = $groupsInformation;
-        $this->referrersInformation = $referrersInformation;
         $this->addressesInformation = $addressesInformation;
         $this->generalInformation = $generalInformation;
     }
@@ -168,6 +168,8 @@ class ViewableCustomer
     }
 
     /**
+     * @deprecated Since 9.0.0 for performance reasons and returns only empty array.
+     *
      * @return CartInformation[]
      */
     public function getCartsInformation()
@@ -176,6 +178,8 @@ class ViewableCustomer
     }
 
     /**
+     * @deprecated Since 9.0.0, returns empty ProductsInformation object with no data.
+     *
      * @return ProductsInformation
      */
     public function getProductsInformation()
@@ -192,6 +196,8 @@ class ViewableCustomer
     }
 
     /**
+     * @deprecated Since 9.0.0, returns only empty array.
+     *
      * @return DiscountInformation[]
      */
     public function getDiscountsInformation()
@@ -224,14 +230,8 @@ class ViewableCustomer
     }
 
     /**
-     * @return ReferrerInformation[]
-     */
-    public function getReferrersInformation()
-    {
-        return $this->referrersInformation;
-    }
-
-    /**
+     * @deprecated Since 9.0.0, returns only empty array.
+     *
      * @return AddressInformation[]
      */
     public function getAddressesInformation()

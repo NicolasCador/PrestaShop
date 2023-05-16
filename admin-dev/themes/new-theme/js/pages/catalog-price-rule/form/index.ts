@@ -23,9 +23,9 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 
+import PriceReductionManager from '@components/form/price-reduction-manager';
 import PriceFieldAvailabilityHandler from './price-field-availability-handler';
 
-import IncludeTaxFieldVisibilityHandler from './include-tax-field-visibility-handler';
 import CatalogPriceRuleFormMap from './catalog-price-rule-form-map';
 
 const {$} = window;
@@ -35,8 +35,10 @@ $(() => {
     CatalogPriceRuleFormMap.initialPrice,
     CatalogPriceRuleFormMap.price,
   );
-  new IncludeTaxFieldVisibilityHandler(
-    CatalogPriceRuleFormMap.reductionType,
+  new PriceReductionManager(
+    CatalogPriceRuleFormMap.reductionTypeSelect,
     CatalogPriceRuleFormMap.includeTax,
+    CatalogPriceRuleFormMap.currencyId,
+    CatalogPriceRuleFormMap.reductionTypeAmountSymbol,
   );
 });

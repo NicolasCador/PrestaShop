@@ -23,7 +23,9 @@
  * @copyright Since 2007 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
+
 use PrestaShop\PrestaShop\Core\Addon\Theme\Theme;
+use PrestaShop\PrestaShop\Core\Addon\Theme\ThemeManagerBuilder;
 
 /**
  * @since 1.5.0
@@ -85,7 +87,7 @@ class ShopCore extends ObjectModel
         ],
     ];
 
-    /** @var array List of shops cached */
+    /** @var array|null List of shops cached */
     protected static $shops;
 
     protected static $asso_tables = [];
@@ -108,6 +110,9 @@ class ShopCore extends ObjectModel
     /** @var int|null ID shop group in the current context (will be empty if context is CONTEXT_ALL) */
     protected static $context_id_shop_group;
 
+    /** @var ShopGroup|null Context shop group kept as cache */
+    protected static $context_shop_group = null;
+
     /** @var bool|null is multistore activated */
     protected static $feature_active;
 
@@ -117,16 +122,16 @@ class ShopCore extends ObjectModel
     /**
      * There are 3 kinds of shop context : shop, group shop and general.
      */
-    const CONTEXT_SHOP = 1;
-    const CONTEXT_GROUP = 2;
-    const CONTEXT_ALL = 4;
+    public const CONTEXT_SHOP = 1;
+    public const CONTEXT_GROUP = 2;
+    public const CONTEXT_ALL = 4;
 
     /**
      * Some data can be shared between shops, like customers or orders.
      */
-    const SHARE_CUSTOMER = 'share_customer';
-    const SHARE_ORDER = 'share_order';
-    const SHARE_STOCK = 'share_stock';
+    public const SHARE_CUSTOMER = 'share_customer';
+    public const SHARE_ORDER = 'share_order';
+    public const SHARE_STOCK = 'share_stock';
 
     /**
      * On shop instance, get its URL data.
@@ -179,7 +184,7 @@ class ShopCore extends ObjectModel
             'product' => ['type' => 'shop'],
             'product_attribute' => ['type' => 'shop'],
             'product_lang' => ['type' => 'fk_shop'],
-            'referrer' => ['type' => 'shop'],
+            'customization_field_lang' => ['type' => 'fk_shop'],
             'store' => ['type' => 'shop'],
             'webservice_account' => ['type' => 'shop'],
             'warehouse' => ['type' => 'shop'],
@@ -239,6 +244,7 @@ class ShopCore extends ObjectModel
     public function add($autodate = true, $null_values = false)
     {
         $res = parent::add($autodate, $null_values);
+        Shop::resetStaticCache();
         Shop::cacheShops(true);
 
         return $res;
@@ -394,7 +400,9 @@ class ShopCore extends ObjectModel
             Configuration::getMultiShopValues('PS_MEDIA_SERVER_3')
         );
 
-        if ((!$id_shop && defined('_PS_ADMIN_DIR_')) || Tools::isPHPCLI() || in_array($http_host, $all_media)) {
+        $isAllShop = 'all' === $id_shop;
+        $isApiInUse = defined('_PS_API_IN_USE_') && _PS_API_IN_USE_;
+        if ((!$id_shop && defined('_PS_ADMIN_DIR_')) || ($isAllShop && $isApiInUse) || Tools::isPHPCLI() || in_array($http_host, $all_media)) {
             // If in admin, we can access to the shop without right URL
             if ((!$id_shop && Tools::isPHPCLI()) || defined('_PS_ADMIN_DIR_')) {
                 $id_shop = (int) Configuration::get('PS_SHOP_DEFAULT');
@@ -423,7 +431,7 @@ class ShopCore extends ObjectModel
             $shop = new Shop($id_shop);
             if (!Validate::isLoadedObject($shop) || !$shop->active) {
                 // No shop found ... too bad, let's redirect to default shop
-                $default_shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+                $default_shop = new Shop((int) Configuration::get('PS_SHOP_DEFAULT'));
 
                 // Hmm there is something really bad in your Prestashop !
                 if (!Validate::isLoadedObject($default_shop)) {
@@ -463,6 +471,7 @@ class ShopCore extends ObjectModel
 
         self::$context_id_shop = $shop->id;
         self::$context_id_shop_group = $shop->id_shop_group;
+        static::$context_shop_group = null;
         self::$context = self::CONTEXT_SHOP;
 
         return $shop;
@@ -494,9 +503,8 @@ class ShopCore extends ObjectModel
      */
     public function setTheme()
     {
-        $context = Context::getContext();
-        $db = Db::getInstance();
-        $themeRepository = (new PrestaShop\PrestaShop\Core\Addon\Theme\ThemeManagerBuilder($context, $db))->buildRepository($this);
+        $themeManagerBuilder = new ThemeManagerBuilder(Context::getContext(), Db::getInstance());
+        $themeRepository = $themeManagerBuilder->buildRepository($this instanceof Shop ? $this : null);
         if (empty($this->theme_name)) {
             $this->theme_name = 'classic';
         }
@@ -521,7 +529,7 @@ class ShopCore extends ObjectModel
      *
      * @return string|bool complete base url of current shop
      */
-    public function getBaseURL($auto_secure_mode = false, $add_base_uri = true)
+    public function getBaseURL($auto_secure_mode = true, $add_base_uri = true)
     {
         if ($auto_secure_mode && Tools::usingSecureMode()) {
             if (!$this->domain_ssl) {
@@ -983,7 +991,7 @@ class ShopCore extends ObjectModel
             default:
                 throw new PrestaShopException('Unknown context for shop');
         }
-
+        static::$context_shop_group = null;
         self::$context = $type;
     }
 
@@ -995,6 +1003,15 @@ class ShopCore extends ObjectModel
     public static function getContext()
     {
         return self::$context;
+    }
+
+    public static function resetStaticCache()
+    {
+        parent::resetStaticCache();
+        static::$shops = null;
+        static::$feature_active = null;
+        static::$context_shop_group = null;
+        Cache::clean('Shop::*');
     }
 
     /**
@@ -1057,18 +1074,17 @@ class ShopCore extends ObjectModel
 
     public static function getContextShopGroup()
     {
-        static $context_shop_group = null;
-        if ($context_shop_group === null) {
-            $context_shop_group = new ShopGroup((int) self::$context_id_shop_group);
+        if (static::$context_shop_group === null) {
+            static::$context_shop_group = new ShopGroup((int) self::$context_id_shop_group);
         }
 
-        return $context_shop_group;
+        return static::$context_shop_group;
     }
 
     /**
      * Add an sql restriction for shops fields.
      *
-     * @param bool|int $share If false, dont check share datas from group. Else can take a Shop::SHARE_* constant value
+     * @param bool|int|string $share If false, dont check share datas from group. Else can take a Shop::SHARE_* constant value
      * @param string|null $alias
      */
     public static function addSqlRestriction($share = false, $alias = null)
@@ -1130,7 +1146,7 @@ class ShopCore extends ObjectModel
      * Add a restriction on id_shop for multishop lang table.
      *
      * @param string|null $alias
-     * @param int|null $id_shop
+     * @param string|int|null $id_shop
      *
      * @return string
      */
@@ -1194,6 +1210,7 @@ class ShopCore extends ObjectModel
         $tables_import['category_lang'] = true;
         if (isset($tables_import['product'])) {
             $tables_import['product_lang'] = true;
+            $tables_import['customization_field_lang'] = true;
         }
 
         if (isset($tables_import['module'])) {

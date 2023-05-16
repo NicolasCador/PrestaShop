@@ -28,10 +28,12 @@
     id="app"
     class="translations-app"
   >
-    <div class="container-fluid">
-      <div class="row justify-content-between align-items-center">
+    <div class="row justify-content-between align-items-end">
+      <div class="col-md-8 mb-3">
         <Search @search="onSearch" />
-        <div class="translations-summary">
+      </div>
+      <div class="col-md-4 mb-3">
+        <div class="translations-summary text-md-right">
           <span>{{ totalTranslations }}</span>
           <span v-show="totalMissingTranslations">
             -
@@ -39,18 +41,23 @@
           </span>
         </div>
       </div>
+    </div>
 
-      <div class="row">
+    <div class="row">
+      <div class="col-md-5 col-lg-4 mb-3">
         <Sidebar
-          :modal="this.$refs.transModal"
-          :principal="this.$refs.principal"
+          :modal="$refs.transModal"
+          :principal="$refs.principal"
         />
+      </div>
+      <div class="col-md-7 col-lg-8 mb-3">
         <Principal
-          :modal="this.$refs.transModal"
+          :modal="$refs.transModal"
           ref="principal"
         />
       </div>
     </div>
+
     <PSModal
       ref="transModal"
       :translations="translations"
@@ -59,14 +66,16 @@
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
+  import {defineComponent} from 'vue';
   import Search from '@app/pages/translations/components/header/search.vue';
   import Sidebar from '@app/pages/translations/components/sidebar/index.vue';
   import Principal from '@app/pages/translations/components/principal/index.vue';
+  import TranslationMixin from '@app/pages/translations/mixins/translate';
   import PSModal from '@app/widgets/ps-modal.vue';
 
-  export default Vue.extend({
+  export default defineComponent({
     name: 'App',
+    mixins: [TranslationMixin],
     computed: {
       isReady(): boolean {
         return this.$store.getters.isReady;
@@ -74,9 +83,9 @@
       totalTranslations(): string {
         return this.$store.state.totalTranslations <= 1
           ? this.trans('label_total_domain_singular')
-            .replace('%nb_translation%', this.$store.state.totalTranslations)
+            .replace('%nb_translation%', this.$store.state.totalTranslations.toString())
           : this.trans('label_total_domain')
-            .replace('%nb_translations%', this.$store.state.totalTranslations);
+            .replace('%nb_translations%', this.$store.state.totalTranslations.toString());
       },
       totalMissingTranslations(): number {
         return this.$store.state.totalMissingTranslations;
@@ -94,6 +103,9 @@
           modal_title: this.trans('modal_title'),
         };
       },
+    },
+    beforeMount() {
+      this.$store.dispatch('getTranslations');
     },
     mounted() {
       $('a').on('click', (e: JQueryEventObject): void => {

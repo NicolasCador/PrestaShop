@@ -24,6 +24,8 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 
+use PrestaShop\PrestaShop\Core\Domain\Title\ValueObject\Gender as ValueObjectGender;
+
 /**
  * @property Gender $object
  */
@@ -116,6 +118,11 @@ class AdminGendersControllerCore extends AdminController
         parent::initPageHeaderToolbar();
     }
 
+    /**
+     * @return string|void
+     *
+     * @throws SmartyException
+     */
     public function renderForm()
     {
         $this->fields_form = [
@@ -142,17 +149,17 @@ class AdminGendersControllerCore extends AdminController
                     'values' => [
                         [
                             'id' => 'type_male',
-                            'value' => 0,
+                            'value' => ValueObjectGender::TYPE_MALE,
                             'label' => $this->trans('Male', [], 'Admin.Shopparameters.Feature'),
                         ],
                         [
                             'id' => 'type_female',
-                            'value' => 1,
+                            'value' => ValueObjectGender::TYPE_FEMALE,
                             'label' => $this->trans('Female', [], 'Admin.Shopparameters.Feature'),
                         ],
                         [
                             'id' => 'type_neutral',
-                            'value' => 2,
+                            'value' => ValueObjectGender::TYPE_OTHER,
                             'label' => $this->trans('Neutral', [], 'Admin.Shopparameters.Feature'),
                         ],
                     ],
@@ -222,7 +229,7 @@ class AdminGendersControllerCore extends AdminController
             }
         }
 
-        return !count($this->errors) ? true : false;
+        return !count($this->errors);
     }
 
     protected function afterImageUpload()

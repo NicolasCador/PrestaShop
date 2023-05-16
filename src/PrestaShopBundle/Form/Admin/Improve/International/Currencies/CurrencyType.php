@@ -39,13 +39,13 @@ use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Translation\TranslatorInterface;
 use Symfony\Component\Validator\Constraints\GreaterThan;
 use Symfony\Component\Validator\Constraints\GreaterThanOrEqual;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\LessThanOrEqual;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Type;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Class CurrencyType
@@ -98,10 +98,8 @@ class CurrencyType extends TranslatorAwareType
                     'choice_translation_domain' => false,
                     'required' => false,
                     'placeholder' => '--',
-                    'attr' => [
-                        'data-toggle' => 'select2',
-                        'data-minimumResultsForSearch' => '1',
-                    ],
+                    'autocomplete' => true,
+                    'autocomplete_minimum_choices' => 1,
                 ])
                 ->add('unofficial', CheckboxType::class, [
                     'required' => false,
@@ -283,7 +281,7 @@ class CurrencyType extends TranslatorAwareType
         if ($this->isShopFeatureEnabled) {
             $builder->add('shop_association', ShopChoiceTreeType::class, [
                 'label' => $this->trans(
-                    'Shop association',
+                    'Store association',
                     'Admin.Global'
                 ),
                 'constraints' => [
@@ -292,7 +290,7 @@ class CurrencyType extends TranslatorAwareType
                             'The %s field is required.',
                             'Admin.Notifications.Error',
                             [
-                                sprintf('"%s"', $this->trans('Shop association', 'Admin.Global')),
+                                sprintf('"%s"', $this->trans('Store association', 'Admin.Global')),
                             ]
                         ),
                     ]),

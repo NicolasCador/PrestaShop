@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -66,7 +65,7 @@ class CurrencyData
      *     'other'   => 'dollars',
      * ]
      *
-     * @var string[]
+     * @var string[]|null
      */
     protected $displayNames;
 
@@ -79,7 +78,7 @@ class CurrencyData
      *     'narrow' => '$',
      * ]
      *
-     * @var string[]
+     * @var string[]|null
      */
     protected $symbols;
 
@@ -189,7 +188,7 @@ class CurrencyData
     }
 
     /**
-     * @return string[]
+     * @return string[]|null
      */
     public function getDisplayNames()
     {
@@ -209,7 +208,7 @@ class CurrencyData
     }
 
     /**
-     * @return string[]
+     * @return string[]|null
      */
     public function getSymbols()
     {

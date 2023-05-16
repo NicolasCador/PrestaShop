@@ -165,11 +165,16 @@ class AdminTaxRulesGroupControllerCore extends AdminController
         return parent::renderList();
     }
 
+    /**
+     * @return string|void
+     *
+     * @throws SmartyException
+     */
     public function renderForm()
     {
         $this->fields_form = [
             'legend' => [
-                'title' => $this->trans('Tax Rules', [], 'Admin.International.Feature'),
+                'title' => $this->trans('Tax rules', [], 'Admin.International.Feature'),
                 'icon' => 'icon-money',
             ],
             'input' => [
@@ -209,7 +214,7 @@ class AdminTaxRulesGroupControllerCore extends AdminController
         if (Shop::isFeatureActive()) {
             $this->fields_form['input'][] = [
                 'type' => 'shop',
-                'label' => $this->trans('Shop association', [], 'Admin.Global'),
+                'label' => $this->trans('Store association', [], 'Admin.Global'),
                 'name' => 'checkBoxShopAsso',
             ];
         }
@@ -330,7 +335,6 @@ class AdminTaxRulesGroupControllerCore extends AdminController
                             'label' => $this->trans('No Tax', [], 'Admin.International.Help'),
                         ],
                     ],
-                    'hint' => $this->trans('(Total tax: 9%)', [], 'Admin.International.Help'),
                 ],
                 [
                     'type' => 'text',
@@ -509,6 +513,19 @@ class AdminTaxRulesGroupControllerCore extends AdminController
     protected function processDeleteTaxRule()
     {
         $this->deleteTaxRule([Tools::getValue('id_tax_rule')]);
+    }
+
+    protected function displayAjaxUpdateTaxRule()
+    {
+        if ($this->access('view')) {
+            $id_tax_rule = Tools::getValue('id_tax_rule');
+            $tax_rules = new TaxRule((int) $id_tax_rule);
+            $output = [];
+            foreach (get_object_vars($tax_rules) as $key => $result) {
+                $output[$key] = $result;
+            }
+            die(json_encode($output));
+        }
     }
 
     protected function deleteTaxRule(array $id_tax_rule_list)

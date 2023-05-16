@@ -28,8 +28,12 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Behaviour\Features\Context\Domain\Product;
 
-use PHPUnit\Framework\Assert;
+use Behat\Gherkin\Node\TableNode;
+use PrestaShop\PrestaShop\Core\Domain\Product\Command\BulkDuplicateProductCommand;
 use PrestaShop\PrestaShop\Core\Domain\Product\Command\DuplicateProductCommand;
+use PrestaShop\PrestaShop\Core\Domain\Product\Exception\ProductException;
+use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\ProductId;
+use PrestaShop\PrestaShop\Core\Domain\Shop\ValueObject\ShopConstraint;
 
 class DuplicateProductFeatureContext extends AbstractProductFeatureContext
 {
@@ -39,53 +43,97 @@ class DuplicateProductFeatureContext extends AbstractProductFeatureContext
      * @param string $productReference
      * @param string $newProductReference
      */
-    public function duplicate(string $productReference, string $newProductReference): void
+    public function duplicateForDefaultShop(string $productReference, string $newProductReference): void
     {
         $newProductId = $this->getCommandBus()->handle(new DuplicateProductCommand(
-            $this->getSharedStorage()->get($productReference)
+            $this->getSharedStorage()->get($productReference),
+            ShopConstraint::shop($this->getDefaultShopId())
         ));
 
         $this->getSharedStorage()->set($newProductReference, $newProductId->getValue());
     }
 
     /**
-     * @Then product :newProductReference should have identical customization fields to :oldProductReference
+     * @When I duplicate product :productReference to a :newProductReference for shop :shopReference
      *
+     * @param string $productReference
      * @param string $newProductReference
-     * @param string $oldProductReference
+     * @param string $shopReference
      */
-    public function assertDuplicatedCustomizationFields(string $newProductReference, string $oldProductReference): void
+    public function duplicateForShop(string $productReference, string $newProductReference, string $shopReference): void
     {
-        $oldCustomizationFields = $this->getProductCustomizationFields($oldProductReference);
-        $newCustomizationFields = $this->getProductCustomizationFields($newProductReference);
+        $newProductId = $this->getCommandBus()->handle(new DuplicateProductCommand(
+            $this->getSharedStorage()->get($productReference),
+            ShopConstraint::shop($this->referenceToId($shopReference))
+        ));
 
-        Assert::assertEquals(
-            count($oldCustomizationFields),
-            count($newCustomizationFields),
-            'Old product customization fields count differs from new duplicated product'
-        );
+        $this->getSharedStorage()->set($newProductReference, $newProductId->getValue());
+    }
 
-        foreach ($oldCustomizationFields as $key => $oldCustomizationField) {
-            Assert::assertEquals(
-                $oldCustomizationField->getLocalizedNames(),
-                $newCustomizationFields[$key]->getLocalizedNames(),
-                'Unexpected localized names of duplicated product customization field'
-            );
-            Assert::assertEquals(
-                $oldCustomizationField->getType(),
-                $newCustomizationFields[$key]->getType(),
-                'Unexpected type of duplicated product customization field'
-            );
-            Assert::assertEquals(
-                $oldCustomizationField->isAddedByModule(),
-                $newCustomizationFields[$key]->isAddedByModule(),
-                'Unexpected "addedByModule" property of duplicated product customization field'
-            );
-            Assert::assertEquals(
-                $oldCustomizationField->isRequired(),
-                $newCustomizationFields[$key]->isRequired(),
-                'Unexpected "required" property of duplicated product customization field'
-            );
+    /**
+     * @When I duplicate product :productReference to a :newProductReference for all shops
+     *
+     * @param string $productReference
+     * @param string $newProductReference
+     */
+    public function duplicateForAllShops(string $productReference, string $newProductReference): void
+    {
+        $newProductId = $this->getCommandBus()->handle(new DuplicateProductCommand(
+            $this->getSharedStorage()->get($productReference),
+            ShopConstraint::allShops()
+        ));
+
+        $this->getSharedStorage()->set($newProductReference, $newProductId->getValue());
+    }
+
+    /**
+     * @When I duplicate product :productReference to a :newProductReference for shop group :shopGroupReference
+     *
+     * @param string $productReference
+     * @param string $newProductReference
+     * @param string $shopGroupReference
+     */
+    public function duplicateForShopGroup(string $productReference, string $newProductReference, string $shopGroupReference): void
+    {
+        $newProductId = $this->getCommandBus()->handle(new DuplicateProductCommand(
+            $this->getSharedStorage()->get($productReference),
+            ShopConstraint::shopGroup($this->referenceToId($shopGroupReference))
+        ));
+
+        $this->getSharedStorage()->set($newProductReference, $newProductId->getValue());
+    }
+
+    /**
+     * @When I bulk duplicate following products:
+     *
+     * @param TableNode $productsList
+     */
+    public function bulkDuplicate(TableNode $productsList): void
+    {
+        $productIds = [];
+        foreach ($productsList->getColumnsHash() as $productInfo) {
+            $productIds[] = $this->getSharedStorage()->get($productInfo['reference']);
+        }
+
+        try {
+            $newProductIds = $this->getCommandBus()->handle(new BulkDuplicateProductCommand($productIds, ShopConstraint::shop($this->getDefaultShopId())));
+        } catch (ProductException $e) {
+            $this->setLastException($e);
+
+            return;
+        }
+
+        /**
+         * @var int $oldProductId
+         * @var ProductId $newProductId
+         */
+        foreach ($newProductIds as $oldProductId => $newProductId) {
+            foreach ($productsList->getColumnsHash() as $productInfo) {
+                $productReferenceId = $this->getSharedStorage()->get($productInfo['reference']);
+                if ($productReferenceId === $oldProductId) {
+                    $this->getSharedStorage()->set($productInfo['copy_reference'], $newProductId->getValue());
+                }
+            }
         }
     }
 }

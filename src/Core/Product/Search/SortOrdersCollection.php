@@ -26,7 +26,7 @@
 
 namespace PrestaShop\PrestaShop\Core\Product\Search;
 
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * This class provide the list of default Sort Orders.
@@ -44,6 +44,8 @@ final class SortOrdersCollection
     }
 
     /**
+     * Returns a set of default sort orders used by core search providers on all pages.
+     *
      * @return array
      *
      * @throws \Exception
@@ -51,9 +53,6 @@ final class SortOrdersCollection
     public function getDefaults()
     {
         return [
-            (new SortOrder('product', 'position', 'asc'))->setLabel(
-                $this->translator->trans('Relevance', [], 'Shop.Theme.Catalog')
-            ),
             (new SortOrder('product', 'name', 'asc'))->setLabel(
                 $this->translator->trans('Name, A to Z', [], 'Shop.Theme.Catalog')
             ),

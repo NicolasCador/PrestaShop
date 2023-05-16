@@ -44,7 +44,7 @@ $(function() {
 {if $query && isset($nb_results) && $nb_results}
 
     {if isset($features)}
-    <div class="panel">
+    <div class="panel" data-role="features">
         <h3>
             {if $features|@count == 1}
                 {l s='1 feature' d='Admin.Navigation.Search'}
@@ -67,7 +67,7 @@ $(function() {
     {/if}
 
     {if isset($modules) && $modules}
-    <div class="panel">
+    <div class="panel" data-role="modules">
         <h3>
             {if $modules|@count == 1}
                 {l s='1 module' d='Admin.Navigation.Search'}
@@ -89,7 +89,7 @@ $(function() {
     {/if}
 
     {if isset($categories) && $categories}
-    <div class="panel">
+    <div class="panel" data-role="categories">
         <h3>
             {if $categories|@count == 1}
                 {l s='1 category' d='Admin.Navigation.Search'}
@@ -109,7 +109,7 @@ $(function() {
 
     {if isset($products) && $products &&
         isset($productsCount) && $productsCount}
-    <div class="panel">
+    <div class="panel" data-role="products">
         <h3>
             {if $productsCount == 1}
                 {l s='1 product' d='Admin.Navigation.Search'}
@@ -123,7 +123,7 @@ $(function() {
 
     {if isset($customers) && $customers &&
         isset($customerCount) && $customerCount}
-    <div class="panel">
+    <div class="panel" data-role="customers">
         <h3>
             {if $customerCount == 1}
                 {l s='1 customer' d='Admin.Navigation.Search'}
@@ -137,7 +137,7 @@ $(function() {
 
     {if isset($orders) && $orders &&
     isset($orderCount) && $orderCount}
-    <div class="panel">
+    <div class="panel" data-role="orders">
         <h3>
             {if $orderCount == 1}
                 {l s='1 order' d='Admin.Navigation.Search'}
@@ -150,17 +150,13 @@ $(function() {
     {/if}
 
 {/if}
-<div class="row">
-    <div class="col-lg-6">
-        <div class="panel">
-            <h3>{l s='Search doc.prestashop.com' d='Admin.Navigation.Search'}</h3>
-            <a href="https://doc.prestashop.com/dosearchsite.action?spaceSearch=true&amp;queryString={$query}&amp;utm_source=back-office&amp;utm_medium=search&amp;utm_campaign=back-office-{$lang_iso|upper}&amp;utm_content=download" class="btn btn-default _blank">{l s='Go to the documentation' d='Admin.Navigation.Search'}</a>
+<div class="row" data-role="search-panels">
+    {foreach $searchPanels key=key item=searchPanel}
+        <div class="col-lg-{if $searchPanels|@count <= 2}6{else}4{/if}">
+            <div class="panel">
+                <h3>{$searchPanel.title}</h3>
+                <a href="{$searchPanel.link}" class="btn btn-default _blank">{$searchPanel.button_label}</a>
+            </div>
         </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="panel">
-            <h3>{l s='Search prestashop.com forum' d='Admin.Navigation.Search'}</h3>
-            <a href="https://www.google.fr/search?q=site%3Aprestashop.com%2Fforums%2F+{$query}" class="btn btn-default _blank">{l s='Go to the Forum' d='Admin.Navigation.Search'}</a>
-        </div>
-    </div>
+    {/foreach}
 </div>

@@ -29,9 +29,12 @@ use PrestaShop\PrestaShop\Core\Product\Search\SortOrder;
 
 class SupplierControllerCore extends ProductListingFrontController
 {
+    /**
+     * @var string
+     */
     public $php_self = 'supplier';
 
-    /** @var Supplier */
+    /** @var Supplier|null */
     protected $supplier;
     protected $label;
 
@@ -42,6 +45,15 @@ class SupplierControllerCore extends ProductListingFrontController
         } elseif ($canonicalURL) {
             parent::canonicalRedirection($canonicalURL);
         }
+    }
+
+    public function getCanonicalURL(): string
+    {
+        if (Validate::isLoadedObject($this->supplier)) {
+            return $this->buildPaginatedUrl($this->context->link->getSupplierLink($this->supplier));
+        }
+
+        return $this->context->link->getPageLink('supplier');
     }
 
     /**
@@ -103,6 +115,9 @@ class SupplierControllerCore extends ProductListingFrontController
         }
     }
 
+    /**
+     * @return ProductSearchQuery
+     */
     protected function getProductSearchQuery()
     {
         $query = new ProductSearchQuery();
@@ -114,6 +129,9 @@ class SupplierControllerCore extends ProductListingFrontController
         return $query;
     }
 
+    /**
+     * @return SupplierProductSearchProvider
+     */
     protected function getDefaultProductSearchProvider()
     {
         return new SupplierProductSearchProvider(
@@ -210,7 +228,7 @@ class SupplierControllerCore extends ProductListingFrontController
             'url' => $this->context->link->getPageLink('supplier', true),
         ];
 
-        if (Validate::isLoadedObject($this->supplier) && $this->supplier->active && $this->supplier->isAssociatedToShop()) {
+        if (!empty($this->supplier)) {
             $breadcrumb['links'][] = [
                 'title' => $this->supplier->name,
                 'url' => $this->context->link->getSupplierLink($this->supplier),
@@ -218,5 +236,25 @@ class SupplierControllerCore extends ProductListingFrontController
         }
 
         return $breadcrumb;
+    }
+
+    public function getTemplateVarPage()
+    {
+        $page = parent::getTemplateVarPage();
+
+        if (!empty($this->supplier)) {
+            $page['body_classes']['supplier-id-' . $this->supplier->id] = true;
+            $page['body_classes']['supplier-' . $this->supplier->name] = true;
+        }
+
+        return $page;
+    }
+
+    /**
+     * @return Supplier
+     */
+    public function getSupplier()
+    {
+        return $this->supplier;
     }
 }

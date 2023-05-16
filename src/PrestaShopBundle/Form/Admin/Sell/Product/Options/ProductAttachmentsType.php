@@ -33,7 +33,7 @@ use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class ProductAttachmentsType extends TranslatorAwareType
 {
@@ -80,7 +80,7 @@ class ProductAttachmentsType extends TranslatorAwareType
                 'attr' => [
                     'data-success-create-message' => $this->trans(
                         'The file was successfully added.',
-                        'Admin.Catalog.Feature'
+                        'Admin.Catalog.Notification'
                     ),
                     'data-modal-title' => $this->trans('Add new file', 'Admin.Catalog.Feature'),
                     'class' => 'btn-outline-secondary add-attachment',
@@ -101,7 +101,7 @@ class ProductAttachmentsType extends TranslatorAwareType
         parent::configureOptions($resolver);
         $resolver->setDefaults([
             'label' => $this->trans('Attached files', 'Admin.Catalog.Feature'),
-            'label_tag_name' => 'h2',
+            'label_tag_name' => 'h3',
             'label_help_box' => $this->trans('Instructions, size guide, or any file you want to add to a product.', 'Admin.Catalog.Help'),
             'label_subtitle' => $this->trans('Customers can download these files on the product page.', 'Admin.Catalog.Help'),
             'external_link' => [

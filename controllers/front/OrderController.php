@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright since 2007 PrestaShop SA and Contributors
  * PrestaShop is an International Registered Trademark & Property of PrestaShop SA
@@ -32,10 +31,13 @@ use PrestaShopBundle\Translation\TranslatorComponent;
 
 class OrderControllerCore extends FrontController
 {
+    /** @var bool */
     public $ssl = true;
+    /** @var string */
     public $php_self = 'order';
+    /** @var string */
     public $page_name = 'checkout';
-    public $checkoutWarning = false;
+    public $checkoutWarning = [];
 
     /**
      * @var CheckoutProcess
@@ -148,24 +150,9 @@ class OrderControllerCore extends FrontController
     protected function saveDataToPersist(CheckoutProcess $process)
     {
         $data = $process->getDataToPersist();
-        $addressValidator = new AddressValidator();
-        $customer = $this->context->customer;
         $cart = $this->context->cart;
 
-        $shouldGenerateChecksum = false;
-
-        if ($customer->isGuest()) {
-            $shouldGenerateChecksum = true;
-        } else {
-            $invalidAddressIds = $addressValidator->validateCartAddresses($cart);
-            if (empty($invalidAddressIds)) {
-                $shouldGenerateChecksum = true;
-            }
-        }
-
-        $data['checksum'] = $shouldGenerateChecksum
-            ? $this->cartChecksum->generateChecksum($cart)
-            : null;
+        $data['checksum'] = $this->cartChecksum->generateChecksum($cart);
 
         Db::getInstance()->execute(
             'UPDATE ' . _DB_PREFIX_ . 'cart SET checkout_session_data = "' . pSQL(json_encode($data)) . '"
@@ -185,7 +172,7 @@ class OrderControllerCore extends FrontController
         $rawData = Db::getInstance()->getValue(
             'SELECT checkout_session_data FROM ' . _DB_PREFIX_ . 'cart WHERE id_cart = ' . (int) $cart->id
         );
-        $data = json_decode($rawData, true);
+        $data = json_decode($rawData ?? '', true);
         if (!is_array($data)) {
             $data = [];
         }
@@ -203,10 +190,6 @@ class OrderControllerCore extends FrontController
                     'Shop.Notifications.Error'
                 ),
             ];
-
-            $checksum = null;
-        } else {
-            $checksum = $this->cartChecksum->generateChecksum($cart);
         }
 
         // Prevent check for guests
@@ -217,7 +200,7 @@ class OrderControllerCore extends FrontController
             $this->checkoutWarning['invalid_addresses'] = $allInvalidAddressIds;
         }
 
-        if (isset($data['checksum']) && $data['checksum'] === $checksum) {
+        if (isset($data['checksum']) && $data['checksum'] === $this->cartChecksum->generateChecksum($cart)) {
             $process->restorePersistedData($data);
         }
     }
@@ -239,6 +222,24 @@ class OrderControllerCore extends FrontController
         ]));
     }
 
+    public function displayAjaxCheckCartStillOrderable(): void
+    {
+        $responseData = [
+            'errors' => false,
+            'cartUrl' => '',
+        ];
+
+        if ($this->context->cart->isAllProductsInStock() !== true ||
+            $this->context->cart->checkAllProductsAreStillAvailableInThisState() !== true ||
+            $this->context->cart->checkAllProductsHaveMinimalQuantities() !== true) {
+            $responseData['errors'] = true;
+            $responseData['cartUrl'] = $this->context->link->getPageLink('cart', null, null, ['action' => 'show']);
+        }
+
+        header('Content-Type: application/json');
+        $this->ajaxRender(json_encode($responseData));
+    }
+
     public function initContent()
     {
         if (Configuration::isCatalogMode()) {
@@ -252,15 +253,24 @@ class OrderControllerCore extends FrontController
 
         $presentedCart = $this->cart_presenter->present($this->context->cart, true);
 
+        $shouldRedirectToCart = false;
+
+        // Check the cart meets minimal order amount treshold
+        // Check that the cart is not empty
         if (count($presentedCart['products']) <= 0 || $presentedCart['minimalPurchaseRequired']) {
-            // if there is no product in current cart, redirect to cart page
-            $cartLink = $this->context->link->getPageLink('cart');
-            $this->redirectWithNotifications($cartLink);
+            $shouldRedirectToCart = true;
         }
 
-        $product = $this->context->cart->checkQuantities(true);
-        if (is_array($product)) {
-            // if there is an issue with product quantities, redirect to cart page
+        // Check that products are still orderable, at any point in checkout
+        if ($this->context->cart->isAllProductsInStock() !== true ||
+            $this->context->cart->checkAllProductsAreStillAvailableInThisState() !== true ||
+            $this->context->cart->checkAllProductsHaveMinimalQuantities() !== true) {
+            $shouldRedirectToCart = true;
+        }
+
+        // If there was a problem, we redirect the user to cart, CartController deals with display of detailed errors
+        // We don't redirect in case of ajax requests, so we can get our response
+        if ($shouldRedirectToCart === true && !$this->ajax) {
             $cartLink = $this->context->link->getPageLink('cart', null, null, ['action' => 'show']);
             $this->redirectWithNotifications($cartLink);
         }
@@ -282,10 +292,6 @@ class OrderControllerCore extends FrontController
 
         $this->context->smarty->assign([
             'checkout_process' => new RenderableProxy($this->checkoutProcess),
-            'cart' => $presentedCart,
-        ]);
-
-        $this->context->smarty->assign([
             'display_transaction_updated_info' => Tools::getIsset('updatedTransaction'),
             'tos_cms' => $this->getDefaultTermsAndConditions(),
         ]);
